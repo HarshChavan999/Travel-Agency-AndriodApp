@@ -28,6 +28,43 @@ fun ListingDetailScreen(
     listing: TravelListing,
     onBack: () -> Unit,
     onChatClick: () -> Unit,
+    onBookNow: () -> Unit,
+    onWishlistToggle: (() -> Unit)? = null,
+    isWishlisted: Boolean = false
+) {
+    // Use enhanced screen if enhanced features are available
+    if (listing.itinerary.isNotEmpty() || 
+        listing.inclusions.isNotEmpty() || 
+        listing.exclusions.isNotEmpty() || 
+        listing.faqs.isNotEmpty() ||
+        listing.packageCode.isNotEmpty() ||
+        listing.photoUrls.isNotEmpty()) {
+        
+        EnhancedListingDetailScreen(
+            listing = listing,
+            onBack = onBack,
+            onChatClick = onChatClick,
+            onBookNow = onBookNow,
+            onWishlistToggle = onWishlistToggle ?: {},
+            isWishlisted = isWishlisted
+        )
+    } else {
+        // Fallback to basic screen for listings without enhanced data
+        BasicListingDetailScreen(
+            listing = listing,
+            onBack = onBack,
+            onChatClick = onChatClick,
+            onBookNow = onBookNow
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun BasicListingDetailScreen(
+    listing: TravelListing,
+    onBack: () -> Unit,
+    onChatClick: () -> Unit,
     onBookNow: () -> Unit
 ) {
     Scaffold(
@@ -40,7 +77,7 @@ fun ListingDetailScreen(
                     }
                 },
                 actions = {
-                        IconButton(onClick = onChatClick) {
+                    IconButton(onClick = onChatClick) {
                         Icon(Icons.Filled.Email, contentDescription = "Chat with Agency")
                     }
                 }

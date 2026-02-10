@@ -199,10 +199,6 @@ class ChatRepository(
         cleanupListeners()
     }
 
-    suspend fun authenticate(token: String) {
-        // Firebase Auth handles authentication separately
-        // This method can be used if you need custom auth flow
-    }
 
     fun sendMessage(toUserId: String, content: String) {
         val currentUser = firebaseAuth.currentUser ?: return

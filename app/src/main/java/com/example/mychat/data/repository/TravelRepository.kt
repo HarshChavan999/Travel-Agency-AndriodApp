@@ -296,7 +296,16 @@ class TravelRepository(private val authRepository: AuthRepository) {
             placesCovered = parsePlacesCovered(data["placesCovered"]),
             hotelType = data["hotelType"] as? String,
             mealPlan = data["mealPlan"] as? String,
-            cost = (data["cost"] as? Number)?.toDouble()
+            cost = (data["cost"] as? Number)?.toDouble(),
+            // Enhanced features - parse from Firestore data
+            itinerary = parseItinerary(data["itinerary"]),
+            inclusions = data["inclusions"] as? String ?: "",
+            exclusions = data["exclusions"] as? String ?: "",
+            faqs = parseFAQs(data["faqs"]),
+            packageCode = data["packageCode"] as? String ?: "",
+            tourCategories = parseTourCategories(data["tourCategories"]),
+            photoUrls = parsePhotoUrls(data["photoUrls"]),
+            videoUrl = data["videoUrl"] as? String ?: ""
         )
     }
 
@@ -312,6 +321,59 @@ class TravelRepository(private val authRepository: AuthRepository) {
                     } else null
                 } else null
             }
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun parseItinerary(itineraryData: Any?): List<com.example.mychat.data.model.ItineraryDay> {
+        return if (itineraryData is List<*>) {
+            itineraryData.mapNotNull { dayData ->
+                if (dayData is Map<*, *>) {
+                    val day = (dayData["day"] as? Number)?.toInt() ?: 0
+                    val placeName = dayData["placeName"] as? String ?: ""
+                    val description = dayData["description"] as? String ?: ""
+                    val activities = (dayData["activities"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    val accommodation = dayData["accommodation"] as? String ?: ""
+                    
+                    if (day > 0 && placeName.isNotEmpty()) {
+                        com.example.mychat.data.model.ItineraryDay(day, placeName, description, activities, accommodation)
+                    } else null
+                } else null
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun parseFAQs(faqsData: Any?): List<com.example.mychat.data.model.FAQ> {
+        return if (faqsData is List<*>) {
+            faqsData.mapNotNull { faqData ->
+                if (faqData is Map<*, *>) {
+                    val question = faqData["question"] as? String ?: ""
+                    val answer = faqData["answer"] as? String ?: ""
+                    
+                    if (question.isNotEmpty() && answer.isNotEmpty()) {
+                        com.example.mychat.data.model.FAQ(question, answer)
+                    } else null
+                } else null
+            }
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun parseTourCategories(categoriesData: Any?): List<String> {
+        return if (categoriesData is List<*>) {
+            categoriesData.mapNotNull { it as? String }
+        } else {
+            emptyList()
+        }
+    }
+
+    private fun parsePhotoUrls(photoUrlsData: Any?): List<String> {
+        return if (photoUrlsData is List<*>) {
+            photoUrlsData.mapNotNull { it as? String }
         } else {
             emptyList()
         }

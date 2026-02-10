@@ -23,11 +23,13 @@ import com.example.mychat.data.model.User
 import com.example.mychat.data.repository.AuthRepository
 import com.example.mychat.data.repository.ChatRepository
 import com.example.mychat.data.repository.TravelRepository
+import com.example.mychat.data.repository.WishlistRepository
 import com.example.mychat.ui.screens.*
 import com.example.mychat.ui.theme.MychatTheme
 import com.example.mychat.viewmodel.AuthViewModel
 import com.example.mychat.viewmodel.ChatViewModel
 import com.example.mychat.viewmodel.TravelViewModel
+import com.example.mychat.viewmodel.WishlistViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
 import kotlinx.coroutines.launch
@@ -113,7 +115,8 @@ enum class Screen {
     DASHBOARD,
     LISTING_DETAIL,
     BOOKING,
-    CHAT
+    CHAT,
+    WISHLIST
 }
 
 @Composable
@@ -121,11 +124,15 @@ fun TravelNavigation(
     authViewModel: AuthViewModel,
     chatViewModel: ChatViewModel,
     travelViewModel: TravelViewModel,
+    wishlistRepository: WishlistRepository,
     currentUser: User
 ) {
     var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
     var selectedListing by remember { mutableStateOf<TravelListing?>(null) }
     var chatWithAgency by remember { mutableStateOf<String?>(null) }
+
+    // Initialize WishlistViewModel here
+    val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
 
     // Firestore automatically handles authentication, no manual connect/disconnect needed
     // Just ensure chat history is loaded when entering chat
@@ -164,15 +171,22 @@ fun TravelNavigation(
                     chatViewModel.setCurrentChatUser(agencyUser)
                     currentScreen = Screen.CHAT
                 },
+                onWishlistClick = { listing ->
+                    wishlistViewModel.toggleWishlist(listing.id)
+                },
+                onWishlistNavigate = {
+                    currentScreen = Screen.WISHLIST
+                },
                 onSignOut = {
                     authViewModel.signOut()
-                }
+                },
+                wishlistViewModel = wishlistViewModel
             )
         }
 
         Screen.LISTING_DETAIL -> {
             selectedListingState?.let { listing ->
-                ListingDetailScreen(
+                EnhancedListingDetailScreen(
                     listing = listing,
                     onBack = {
                         travelViewModel.clearSelectedListing()
@@ -191,7 +205,13 @@ fun TravelNavigation(
                     },
                     onBookNow = {
                         currentScreen = Screen.BOOKING
-                    }
+                    },
+                    onWishlistToggle = {
+                        // Wishlist functionality - toggle wishlist state
+                        // For now, just show a toast or log the action
+                        android.util.Log.d("Wishlist", "Toggled wishlist for ${listing.title}")
+                    },
+                    isWishlisted = false
                 )
             }
         }
@@ -254,6 +274,30 @@ fun TravelNavigation(
                 )
             }
         }
+
+        Screen.WISHLIST -> {
+            WishlistScreen(
+                wishlistViewModel = wishlistViewModel,
+                onListingClick = { listing ->
+                    travelViewModel.loadListingById(listing.id)
+                    currentScreen = Screen.LISTING_DETAIL
+                },
+                onChatClick = { listing ->
+                    chatWithAgency = listing.agencyId
+                    val agencyUser = User(
+                        id = listing.agencyId,
+                        email = "${listing.agencyId}@agency.com",
+                        displayName = listing.agencyName,
+                        isOnline = true
+                    )
+                    chatViewModel.setCurrentChatUser(agencyUser)
+                    currentScreen = Screen.CHAT
+                },
+                onBack = {
+                    currentScreen = Screen.DASHBOARD
+                }
+            )
+        }
     }
 }
 
@@ -270,11 +314,13 @@ fun TravelApp(
     val authRepository = remember { AuthRepository() }
     val chatRepository = remember { ChatRepository(authRepository) }
     val travelRepository = remember { TravelRepository(authRepository) }
+    val wishlistRepository = remember { WishlistRepository(authRepository) }
 
     // Initialize ViewModels
     val authViewModel: AuthViewModel = viewModel { AuthViewModel(authRepository) }
     val chatViewModel: ChatViewModel = viewModel { ChatViewModel(chatRepository) }
     val travelViewModel: TravelViewModel = viewModel { TravelViewModel(travelRepository) }
+    val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
 
     // Notify MainActivity that AuthRepository is ready
     LaunchedEffect(authRepository) {
@@ -303,6 +349,7 @@ fun TravelApp(
                 authViewModel = authViewModel,
                 chatViewModel = chatViewModel,
                 travelViewModel = travelViewModel,
+                wishlistRepository = wishlistRepository,
                 currentUser = currentUser!!
             )
         }

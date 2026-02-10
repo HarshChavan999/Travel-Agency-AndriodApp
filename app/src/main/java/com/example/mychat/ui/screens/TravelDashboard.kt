@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import com.example.mychat.R
 import com.example.mychat.data.model.TravelListing
 import com.example.mychat.data.model.User
+import com.example.mychat.viewmodel.WishlistViewModel
 
 data class Destination(
     val name: String,
@@ -52,7 +53,10 @@ fun TravelDashboard(
     isLoading: Boolean,
     onListingClick: (TravelListing) -> Unit,
     onChatClick: (TravelListing) -> Unit,
-    onSignOut: () -> Unit
+    onWishlistClick: (TravelListing) -> Unit,
+    onWishlistNavigate: () -> Unit,
+    onSignOut: () -> Unit,
+    wishlistViewModel: WishlistViewModel
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
@@ -89,7 +93,8 @@ fun TravelDashboard(
             bottomBar = {
                 BottomNavigationBar(
                     selectedTab = selectedTab,
-                    onTabSelected = { selectedTab = it }
+                    onTabSelected = { selectedTab = it },
+                    onWishlistClick = onWishlistNavigate
                 )
             },
             containerColor = MaterialTheme.colorScheme.background
@@ -161,11 +166,13 @@ fun TravelDashboard(
                             DestinationCard(
                                 destination = destination,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                onListingClick = { destination.travelListing?.let { listing ->
-                                    // Pass the complete listing with enhanced data
-                                    onListingClick(listing)
-                                } },
-                                onChatClick = { destination.travelListing?.let { onChatClick(it) } }
+                            onListingClick = { destination.travelListing?.let { listing ->
+                                // Pass the complete listing with enhanced data
+                                onListingClick(listing)
+                            } },
+                            onChatClick = { destination.travelListing?.let { onChatClick(it) } },
+                            onWishlistToggle = { destination.travelListing?.let { onWishlistClick(it) } },
+                            isWishlisted = destination.travelListing?.let { wishlistViewModel.isListingInWishlist(it.id) } ?: false
                             )
                         }
                     }
@@ -352,9 +359,16 @@ fun DestinationCard(
     destination: Destination,
     modifier: Modifier = Modifier,
     onListingClick: () -> Unit,
-    onChatClick: () -> Unit
+    onChatClick: () -> Unit,
+    onWishlistToggle: (() -> Unit)? = null,
+    isWishlisted: Boolean = false
 ) {
-    var isFavorite by remember { mutableStateOf(false) }
+    var isFavorite by remember(isWishlisted) { mutableStateOf(isWishlisted) }
+    
+    // Update isFavorite when isWishlisted changes
+    LaunchedEffect(isWishlisted) {
+        isFavorite = isWishlisted
+    }
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -418,12 +432,15 @@ fun DestinationCard(
                     shape = CircleShape
                 ) {
                     IconButton(
-                        onClick = { isFavorite = !isFavorite },
+                        onClick = {
+                            isFavorite = !isFavorite
+                            onWishlistToggle?.invoke()
+                        },
                         modifier = Modifier.fillMaxSize()
                     ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = "Favorite",
+                            contentDescription = "Wishlist",
                             tint = if (isFavorite) Color(0xFFEF4444) else Color(0xFF374151)
                         )
                     }
@@ -634,7 +651,7 @@ fun DestinationCard(
 
 @Composable
 fun DetailItem(
-    icon: ImageVector,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
     iconTint: Color = Color(0xFF6B7280)
 ) {
@@ -659,7 +676,8 @@ fun DetailItem(
 @Composable
 fun BottomNavigationBar(
     selectedTab: Int,
-    onTabSelected: (Int) -> Unit
+    onTabSelected: (Int) -> Unit,
+    onWishlistClick: () -> Unit
 ) {
     val items = listOf(
         BottomNavItem("Home", Icons.Filled.Home, Icons.Outlined.Home),
@@ -673,30 +691,58 @@ fun BottomNavigationBar(
         tonalElevation = 8.dp
     ) {
         items.forEachIndexed { index, item ->
-            NavigationBarItem(
-                selected = selectedTab == index,
-                onClick = { onTabSelected(index) },
-                icon = {
-                    Icon(
-                        imageVector = if (selectedTab == index) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.label
+            if (index == 2) {
+                // Wishlist tab with custom click handler
+                NavigationBarItem(
+                    selected = selectedTab == index,
+                    onClick = onWishlistClick,
+                    icon = {
+                        Icon(
+                            imageVector = if (selectedTab == index) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.label
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = Color(0xFF6B7280),
+                        unselectedTextColor = Color(0xFF6B7280),
+                        indicatorColor = Color.Transparent
                     )
-                },
-                label = {
-                    Text(
-                        text = item.label,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                    unselectedIconColor = Color(0xFF6B7280),
-                    unselectedTextColor = Color(0xFF6B7280),
-                    indicatorColor = Color.Transparent
                 )
-            )
+            } else {
+                NavigationBarItem(
+                    selected = selectedTab == index,
+                    onClick = { onTabSelected(index) },
+                    icon = {
+                        Icon(
+                            imageVector = if (selectedTab == index) item.selectedIcon else item.unselectedIcon,
+                            contentDescription = item.label
+                        )
+                    },
+                    label = {
+                        Text(
+                            text = item.label,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = MaterialTheme.colorScheme.primary,
+                        selectedTextColor = MaterialTheme.colorScheme.primary,
+                        unselectedIconColor = Color(0xFF6B7280),
+                        unselectedTextColor = Color(0xFF6B7280),
+                        indicatorColor = Color.Transparent
+                    )
+                )
+            }
         }
     }
 }

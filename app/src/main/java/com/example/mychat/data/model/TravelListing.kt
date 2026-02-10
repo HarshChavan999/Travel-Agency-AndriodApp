@@ -22,7 +22,16 @@ data class TravelListing(
     val placesCovered: List<PlaceCovered> = emptyList(),
     val hotelType: String? = null,
     val mealPlan: String? = null,
-    val cost: Double? = null // Alternative price field
+    val cost: Double? = null, // Alternative price field
+    // Enhanced features for detailed package view
+    val itinerary: List<ItineraryDay> = emptyList(),
+    val inclusions: String = "", // Comma-separated or newline-separated list
+    val exclusions: String = "", // Comma-separated or newline-separated list
+    val faqs: List<FAQ> = emptyList(),
+    val packageCode: String = "",
+    val tourCategories: List<String> = emptyList(),
+    val photoUrls: List<String> = emptyList(), // Additional photos beyond main photo
+    val videoUrl: String = ""
 )
 
 data class PlaceCovered(
@@ -37,6 +46,19 @@ data class Agency(
     val name: String, // contact person's name
     val email: String,
     val approved: Boolean = false
+)
+
+data class ItineraryDay(
+    val day: Int,
+    val placeName: String,
+    val description: String,
+    val activities: List<String> = emptyList(),
+    val accommodation: String = ""
+)
+
+data class FAQ(
+    val question: String,
+    val answer: String
 )
 
 data class Booking(

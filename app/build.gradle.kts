@@ -14,6 +14,10 @@ android {
         version = release(36)
     }
 
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+
     defaultConfig {
         applicationId = "com.example.mychat"
         minSdk = 24
@@ -60,8 +64,9 @@ android {
 
 firebaseAppDistribution {
     appId = "1:387994411670:android:3898d613d93cf83e9f18b7"
-    releaseNotes = "My Chat App v1.0 - Initial release"
+    releaseNotes = "New travel listing functionality"
     groups = "testers"
+    testers = "harshnpc21@gmail.com"
 }
 
 dependencies {
@@ -102,10 +107,6 @@ dependencies {
 
     // Google Sign-In
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-
-    // WebSocket and networking
-    implementation(libs.okhttp)
-    implementation(libs.gson)
 
     // Image loading
     implementation(libs.coil.compose)

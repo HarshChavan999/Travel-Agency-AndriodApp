@@ -23,7 +23,7 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     private val _authState = MutableStateFlow<AuthState>(AuthState.Idle)
     val authState: StateFlow<AuthState> = _authState
 
-    // Flow to notify when user successfully authenticates (for WebSocket connection)
+    // Flow to notify when user successfully authenticates
     private val _authSuccess = MutableSharedFlow<User>()
     val authSuccess: SharedFlow<User> = _authSuccess
 

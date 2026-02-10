@@ -62,17 +62,6 @@ class ChatViewModel(
         }
     }
 
-    fun connect() {
-        chatRepository.connect()
-    }
-
-    fun disconnect() {
-        chatRepository.disconnect()
-    }
-
-    suspend fun authenticate(token: String) {
-        chatRepository.authenticate(token)
-    }
 
     fun sendMessage(toUserId: String, content: String) {
         android.util.Log.d("ChatViewModel", "sendMessage called: toUserId=$toUserId, content=$content")
