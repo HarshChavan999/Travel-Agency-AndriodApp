@@ -7,7 +7,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +22,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest as CoilImageRequest
 import com.example.mychat.R
 import com.example.mychat.data.model.TravelListing
 
@@ -93,12 +98,20 @@ fun BasicListingDetailScreen(
             // Image Gallery
             if (listing.photos.isNotEmpty()) {
                 AsyncImage(
-                    model = listing.photos.first(),
+                    model = CoilImageRequest.Builder(LocalContext.current)
+                        .data(listing.photos.first())
+                        .crossfade(true)
+                        .size(1080, 720)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
                     contentDescription = listing.title,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(250.dp),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(R.drawable.ic_launcher_background),
+                    error = painterResource(R.drawable.ic_launcher_background)
                 )
             } else {
                 Box(
@@ -108,7 +121,7 @@ fun BasicListingDetailScreen(
                         .background(Color.LightGray),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🏖️", style = MaterialTheme.typography.displayLarge)
+                    Icon(Icons.Default.Image, contentDescription = "No image", modifier = Modifier.size(64.dp).alpha(0.3f))
                 }
             }
 
@@ -174,9 +187,9 @@ fun BasicListingDetailScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 text = when (listing.packageType) {
-                                    "international" -> "🌍 International"
-                                    "domestic" -> "🏠 Domestic"
-                                    else -> "✈️ Package"
+                                    "international" -> "International"
+                                    "domestic" -> "Domestic"
+                                    else -> "Package"
                                 },
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
@@ -228,24 +241,7 @@ fun BasicListingDetailScreen(
                                 )
                             }
 
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                val displayPrice = if (listing.cost != null) {
-                                    listing.cost!!.toInt()
-                                } else {
-                                    listing.price.toInt()
-                                }
-                                Text(
-                                    text = "$${displayPrice}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Text(
-                                    text = "Price",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.Gray
-                                )
-                            }
+                            // Price column removed
                         }
                     }
                 }
@@ -294,7 +290,7 @@ fun BasicListingDetailScreen(
                         // Hotel Type
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "🏨 Hotel Type:",
+                                text = "Hotel Type:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
                             )
@@ -311,7 +307,7 @@ fun BasicListingDetailScreen(
                         // Meal Plan
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "🍽️ Meal Plan:",
+                                text = "Meal Plan:",
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium
                             )
@@ -376,13 +372,8 @@ fun BasicListingDetailScreen(
                         modifier = Modifier.fillMaxWidth(),
                         contentPadding = PaddingValues(16.dp)
                     ) {
-                        val displayPrice = if (listing.cost != null) {
-                            listing.cost!!.toInt()
-                        } else {
-                            listing.price.toInt()
-                        }
                         Text(
-                            "Book Now - $${displayPrice}",
+                            "Book Now",
                             style = MaterialTheme.typography.titleMedium
                         )
                     }

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,7 +15,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -22,8 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.request.CachePolicy
+import coil.request.ImageRequest as CoilImageRequest
 import com.example.mychat.R
 import com.example.mychat.data.model.TravelListing
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
@@ -47,6 +53,9 @@ fun EnhancedListingDetailScreen(
     var expandedDays by remember { mutableStateOf(mutableSetOf<Int>()) }
     var expandedFAQs by remember { mutableStateOf(mutableSetOf<Int>()) }
     var showAllPhotos by remember { mutableStateOf(false) }
+
+    val isInternational = listing.packageType == "international"
+    val currency = if (isInternational) "$" else "₹"
 
     Scaffold(
         topBar = {
@@ -73,8 +82,11 @@ fun EnhancedListingDetailScreen(
                 onShowAllPhotos = { showAllPhotos = true }
             )
 
-            // Package Summary Bar
-            PackageSummaryBar(listing = listing)
+            // Package Summary Bar with Pricing
+            ModernPackageSummaryBar(
+                listing = listing,
+                currency = currency
+            )
 
             // Main Content
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -148,11 +160,12 @@ fun EnhancedListingDetailScreen(
                 AgencyInfoSection(listing = listing, onChatClick = onChatClick)
 
                 // Action Buttons
-                ActionButtonsSection(
+                ModernActionButtonsSection(
                     listing = listing,
                     onBookNow = onBookNow,
                     onChatClick = onChatClick,
-                    onBack = onBack
+                    onBack = onBack,
+                    currency = currency
                 )
             }
         }
@@ -179,38 +192,16 @@ fun EnhancedTopAppBar(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.primary)
-            .padding(16.dp)
+            .background(Color(0xFF1C1F26))
     ) {
-        // Breadcrumb Navigation
-        BreadcrumbNavigation(listing = listing)
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Title and Actions Row
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = listing.title,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                
-                // Package Code
-                if (listing.packageCode.isNotEmpty()) {
-                    Text(
-                        text = "Code: ${listing.packageCode}",
-                        fontSize = 12.sp,
-                        color = Color.White.copy(alpha = 0.8f)
-                    )
-                }
-            }
-
+            // Back button and title
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(
@@ -219,105 +210,99 @@ fun EnhancedTopAppBar(
                         tint = Color.White
                     )
                 }
+                Column {
+                    Text(
+                        text = listing.title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 1
+                    )
+                    if (listing.packageCode.isNotEmpty()) {
+                        Text(
+                            text = "Code: ${listing.packageCode}",
+                            fontSize = 11.sp,
+                            color = Color.White.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // Share
                 IconButton(onClick = { /* Share functionality */ }) {
                     Icon(
                         Icons.Filled.Share,
                         contentDescription = "Share",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
+                // Compare
                 IconButton(onClick = { /* Compare functionality */ }) {
                     Icon(
-                        Icons.Filled.List,
+                        Icons.Filled.Add,
                         contentDescription = "Compare",
-                        tint = Color.White
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
+                // Wishlist
                 IconButton(onClick = onWishlistToggle) {
                     Icon(
                         imageVector = if (isWishlisted) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
                         contentDescription = "Wishlist",
-                        tint = if (isWishlisted) Color(0xFFFFC107) else Color.White
+                        tint = if (isWishlisted) Color(0xFFEF4444) else Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Rating and Agency
+        // Breadcrumb and Rating
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Location
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.Place,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                val location = listing.countryName ?: listing.stateName ?: listing.destination
+                Text(
+                    text = location,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+            }
+
+            // Rating
             if (listing.rating > 0) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Star,
                         contentDescription = "Rating",
                         tint = Color(0xFFFFC107),
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
                     Text(
                         text = "${listing.rating} (${listing.reviewsCount})",
-                        fontSize = 14.sp,
+                        fontSize = 12.sp,
                         color = Color.White
                     )
                 }
             }
-            
-            Text(
-                text = "By ${listing.agencyName}",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.8f)
-            )
         }
-    }
-}
 
-@Composable
-fun BreadcrumbNavigation(listing: TravelListing) {
-    val breadcrumb = buildBreadcrumb(listing)
-    
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        breadcrumb.forEachIndexed { index, (text, isLast) ->
-            Text(
-                text = text,
-                fontSize = 12.sp,
-                color = if (isLast) Color.White else Color.White.copy(alpha = 0.7f),
-                fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal
-            )
-            if (!isLast) {
-                Icon(
-                    Icons.Default.ArrowForward,
-                    contentDescription = "Next",
-                    tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun buildBreadcrumb(listing: TravelListing): List<Pair<String, Boolean>> {
-    val parts = mutableListOf("Home")
-    
-    if (listing.packageType == "domestic") {
-        parts.add("Domestic")
-        if (listing.stateName != null) parts.add(listing.stateName)
-    } else {
-        parts.add("International")
-        if (listing.countryName != null) parts.add(listing.countryName)
-    }
-    
-    parts.add(listing.title)
-    
-    return parts.mapIndexed { index, text ->
-        text to (index == parts.size - 1)
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
 
@@ -330,95 +315,71 @@ fun PhotoGallerySection(
 ) {
     val allImages = getAllImages(listing)
     val mainImage = allImages.firstOrNull()
-    
+
     Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
         // Main Photo
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(250.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .height(280.dp)
+                .clip(RoundedCornerShape(16.dp))
         ) {
             if (mainImage != null) {
                 AsyncImage(
-                    model = mainImage,
+                    model = CoilImageRequest.Builder(LocalContext.current)
+                        .data(mainImage)
+                        .crossfade(true)
+                        .size(1080, 720)
+                        .memoryCachePolicy(CachePolicy.ENABLED)
+                        .diskCachePolicy(CachePolicy.ENABLED)
+                        .build(),
                     contentDescription = listing.title,
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(R.drawable.ic_launcher_background),
+                    error = painterResource(R.drawable.ic_launcher_background)
                 )
             } else {
                 Box(
                     modifier = Modifier.fillMaxSize().background(Color.LightGray),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("🏖️", style = MaterialTheme.typography.displayLarge)
+                    Icon(Icons.Default.Image, contentDescription = "No image", modifier = Modifier.size(64.dp).alpha(0.3f))
                 }
             }
-            
+
+            // Agency badge on image
+            Surface(
+                modifier = Modifier
+                    .padding(12.dp)
+                    .align(Alignment.TopStart),
+                color = Color.White.copy(alpha = 0.9f),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = listing.agencyName,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF374151),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                )
+            }
+
             if (allImages.size > 1) {
-                Button(
+                Surface(
                     onClick = onShowAllPhotos,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Black.copy(alpha = 0.7f))
+                        .padding(12.dp),
+                    color = Color.Black.copy(alpha = 0.7f),
+                    shape = RoundedCornerShape(8.dp)
                 ) {
-                    Text("+${allImages.size - 1} Photos")
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Image Tabs
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            ImageTab.values().forEach { tab ->
-                val isSelected = tab == activeImageTab
-                val iconColor = if (isSelected) Color.White else Color.Gray
-                
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(60.dp)
-                        .background(
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color(0xFFF3F4F6),
-                            shape = RoundedCornerShape(8.dp)
-                        )
-                        .clickable { onImageTabChange(tab) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = when(tab) {
-                                ImageTab.Sightseeing -> Icons.Default.Star
-                                ImageTab.Hotel -> Icons.Default.Star
-                                ImageTab.Video -> Icons.Default.Star
-                            },
-                            contentDescription = null,
-                            tint = iconColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Text(
-                            text = when(tab) {
-                                ImageTab.Sightseeing -> "Sightseeing"
-                                ImageTab.Hotel -> "Hotel"
-                                ImageTab.Video -> "Video"
-                            },
-                            fontSize = 12.sp,
-                            color = iconColor,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                        if (tab == ImageTab.Sightseeing) {
-                            Text(
-                                text = "${allImages.size} photos",
-                                fontSize = 10.sp,
-                                color = iconColor
-                            )
-                        }
-                    }
+                    Text(
+                        "+${allImages.size - 1} Photos",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
         }
@@ -426,62 +387,80 @@ fun PhotoGallerySection(
 }
 
 @Composable
-fun PackageSummaryBar(listing: TravelListing) {
+fun ModernPackageSummaryBar(
+    listing: TravelListing,
+    currency: String
+) {
+    val itineraryDays = listing.placesCovered?.size ?: listing.duration
+    val nights = if (itineraryDays > 0) itineraryDays - 1 else 0
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            SummaryItem(
-                icon = Icons.Default.DateRange,
-                label = "Duration",
-                value = "${listing.duration}D / ${listing.duration - 1}N"
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Title
+            Text(
+                text = listing.title,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
             )
-            SummaryItem(
-                icon = Icons.Default.Place,
-                label = "Places",
-                value = "${listing.placesCovered.size} Cities"
-            )
-            SummaryItem(
-                icon = Icons.Default.Star,
-                label = "Hotel Type",
-                value = listing.hotelType ?: "Standard"
-            )
-            SummaryItem(
-                icon = Icons.Default.Star,
-                label = "Starting From",
-                value = "${if (listing.packageType == "international") "$" else "₹"}${(listing.cost ?: listing.price).toInt()}"
-            )
-        }
-    }
-}
 
-@Composable
-fun SummaryItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            imageVector = icon,
-            contentDescription = label,
-            tint = Color.White,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = label,
-            fontSize = 10.sp,
-            color = Color.White.copy(alpha = 0.8f)
-        )
-        Text(
-            text = value,
-            fontSize = 12.sp,
-            color = Color.White,
-            fontWeight = FontWeight.Bold
-        )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tags Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Package Type and other tags
+                Surface(
+                    color = if (listing.packageType == "international") Color(0xFFDBEAFE) else Color(0xFFD1FAE5),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = if (listing.packageType == "international") "International" else "Domestic",
+                        fontSize = 11.sp,
+                        color = if (listing.packageType == "international") Color(0xFF1E40AF) else Color(0xFF065F46),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                // Duration
+                Surface(
+                    color = Color(0xFFF3F4F6),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "${itineraryDays}D / ${nights}N",
+                        fontSize = 11.sp,
+                        color = Color(0xFF374151),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                // Places Count
+                if (listing.placesCovered.isNotEmpty()) {
+                    Surface(
+                        color = Color(0xFFFEF3C7),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = "${listing.placesCovered.size} Places",
+                            fontSize = 11.sp,
+                            color = Color(0xFF92400E),
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -494,8 +473,9 @@ fun ExpandableSection(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -510,7 +490,7 @@ fun ExpandableSection(
                 )
                 Text(
                     text = title,
-                    fontSize = 18.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground
                 )
@@ -535,53 +515,78 @@ fun ItinerarySection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onDayToggle(day.day) }
+                    .background(Color(0xFFF9FAFB), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .background(Color(0xFFE3F2FD), RoundedCornerShape(8.dp))
-                            .padding(4.dp),
+                            .size(36.dp)
+                            .background(Color(0xFFDBEAFE), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "D${day.day}",
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            fontSize = 13.sp,
+                            color = Color(0xFF2563EB)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
                             text = "Day ${day.day}",
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
                         )
                         Text(
                             text = day.placeName,
-                            color = Color.Gray
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp
                         )
                     }
                 }
                 Icon(
                     imageVector = if (expandedDays.contains(day.day)) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color.Gray
+                    tint = Color(0xFF9CA3AF)
                 )
             }
-            
+
             if (expandedDays.contains(day.day)) {
-                Column(modifier = Modifier.padding(start = 44.dp, top = 8.dp, bottom = 12.dp)) {
+                Column(
+                    modifier = Modifier.padding(start = 48.dp, top = 8.dp, bottom = 12.dp)
+                ) {
                     Text(
                         text = day.description,
-                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.5f
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        color = Color(0xFF4B5563)
                     )
                     if (day.accommodation.isNotEmpty()) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Staying at: ${day.accommodation}",
-                            color = Color.Gray,
-                            fontSize = 12.sp
-                        )
+                        Surface(
+                            color = Color(0xFFF3F4F6),
+                            shape = RoundedCornerShape(6.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                    Icon(
+                        Icons.Default.Star,
+                        contentDescription = null,
+                        tint = Color(0xFF6B7280),
+                        modifier = Modifier.size(14.dp)
+                    )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "Staying at: ${day.accommodation}",
+                                    color = Color(0xFF6B7280),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -599,7 +604,7 @@ fun AccommodationSection(listing: TravelListing) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
@@ -612,7 +617,8 @@ fun AccommodationSection(listing: TravelListing) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = place.name,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
                     )
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         repeat(4) {
@@ -620,24 +626,26 @@ fun AccommodationSection(listing: TravelListing) {
                                 Icons.Default.Star,
                                 contentDescription = null,
                                 tint = Color(0xFFFBBF24),
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(14.dp)
                             )
                         }
                         Text(
                             text = "4 Star Properties",
-                            color = Color.Gray,
-                            modifier = Modifier.padding(start = 8.dp)
+                            color = Color(0xFF6B7280),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(start = 4.dp)
                         )
                     }
                 }
                 Text(
                     text = "1 Night",
                     fontWeight = FontWeight.Bold,
-                    color = Color.Gray
+                    color = Color(0xFF6B7280),
+                    fontSize = 12.sp
                 )
             }
             if (index < listing.placesCovered.size - 1) {
-                Divider(modifier = Modifier.padding(horizontal = 36.dp))
+                Divider(modifier = Modifier.padding(start = 36.dp))
             }
         }
     }
@@ -654,10 +662,10 @@ fun InclusionsSection(inclusions: List<String>) {
                 Icons.Default.CheckCircle,
                 contentDescription = null,
                 tint = Color(0xFF10B981),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(text = item)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = item, fontSize = 13.sp)
         }
     }
 }
@@ -672,11 +680,11 @@ fun ExclusionsSection(exclusions: List<String>) {
             Icon(
                 Icons.Default.Close,
                 contentDescription = null,
-                tint = Color(0xEF4444),
-                modifier = Modifier.size(20.dp)
+                tint = Color(0xFFEF4444),
+                modifier = Modifier.size(18.dp)
             )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(text = item)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = item, fontSize = 13.sp)
         }
     }
 }
@@ -695,26 +703,31 @@ fun FAQSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onFAQToggle(index) }
+                    .background(Color(0xFFF9FAFB), RoundedCornerShape(8.dp))
+                    .padding(12.dp)
             ) {
                 Text(
                     text = faq.question,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    fontSize = 13.sp
                 )
                 Icon(
                     imageVector = if (expandedFAQs.contains(index)) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = null,
-                    tint = Color.Gray
+                    tint = Color(0xFF9CA3AF)
                 )
             }
-            
+
             if (expandedFAQs.contains(index)) {
                 Text(
                     text = faq.answer,
                     modifier = Modifier
                         .padding(start = 16.dp, top = 8.dp, bottom = 12.dp)
                         .fillMaxWidth(),
-                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.5f
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = Color(0xFF4B5563)
                 )
             }
         }
@@ -726,17 +739,30 @@ fun PackageHighlightsSection() {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Package Highlights",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Package Highlights",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             listOf(
                 "Guided tours with expert local guides",
                 "Premium accommodation throughout",
@@ -751,10 +777,10 @@ fun PackageHighlightsSection() {
                         Icons.Default.CheckCircle,
                         contentDescription = null,
                         tint = Color(0xFF10B981),
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(text = highlight)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = highlight, fontSize = 13.sp)
                 }
             }
         }
@@ -766,8 +792,9 @@ fun AgencyInfoSection(listing: TravelListing, onChatClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -777,116 +804,199 @@ fun AgencyInfoSection(listing: TravelListing, onChatClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(48.dp)
-                    .background(Color(0xFFE3F2FD), RoundedCornerShape(24.dp)),
+                    .background(Color(0xFFDBEAFE), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "🏢",
+                    text = "Agency",
                     fontSize = 24.sp
                 )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = listing.agencyName,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
                 )
                 if (listing.agencyData?.approved == true) {
-                    Text(
-                        text = "✅ Verified",
-                        color = Color(0xFF10B981),
-                        fontSize = 12.sp
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Surface(
+                            color = Color(0xFFD1FAE5),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "Verified",
+                                color = Color(0xFF065F46),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
                 }
             }
             Button(
                 onClick = onChatClick,
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2563EB)),
+                shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(
                     Icons.Filled.Email,
                     contentDescription = "Chat",
                     modifier = Modifier.size(16.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Chat with Agency")
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Chat", fontSize = 13.sp)
             }
         }
     }
 }
 
 @Composable
-fun ActionButtonsSection(
+fun PricingBreakdownSection(
+    listing: TravelListing,
+    currency: String
+) {
+    val price = listing.price.toDouble()
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Pricing",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Base Price", fontSize = 13.sp, color = Color(0xFF6B7280))
+                Text("$currency${listing.price}", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Service Fee (5%)", fontSize = 13.sp, color = Color(0xFF6B7280))
+                Text("$currency${"%.2f".format(price * 0.05)}", fontSize = 13.sp, color = Color(0xFF6B7280))
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "Total per person",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "$currency${"%.2f".format(price * 1.05)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF10B981)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ModernActionButtonsSection(
     listing: TravelListing,
     onBookNow: () -> Unit,
     onChatClick: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    currency: String
 ) {
-    val price = listing.cost ?: listing.price
-    val currency = if (listing.packageType == "international") "$" else "₹"
-    
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
-        Card(
+        // Book Now - Primary
+        Button(
+            onClick = onBookNow,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2563EB)
+            )
         ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    text = "Starting from",
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-                Text(
-                    text = "${currency}${price.toInt()}",
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-                Text(
-                    text = "per person",
-                    color = Color.White.copy(alpha = 0.8f)
-                )
-                
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                Button(
-                    onClick = onBookNow,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text("Book Now")
-                }
-            }
+                    Icon(
+                        Icons.Default.ShoppingCart,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                "Book Now",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
-        
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Chat
         OutlinedButton(
             onClick = onChatClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp)
+                .height(48.dp),
+            shape = RoundedCornerShape(12.dp)
         ) {
             Icon(
                 Icons.Filled.Email,
                 contentDescription = "Chat",
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(18.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Chat with ${listing.agencyName}")
+            Text(
+                "Chat with ${listing.agencyName}",
+                fontSize = 14.sp
+            )
         }
-        
-        OutlinedButton(
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Back
+        TextButton(
             onClick = onBack,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp)
+            modifier = Modifier.fillMaxWidth()
         ) {
             Icon(
                 Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = "Back",
                 modifier = Modifier.size(16.dp)
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Back to Listings")
+            Spacer(modifier = Modifier.width(4.dp))
+            Text("Back to Listings", color = Color(0xFF6B7280))
         }
     }
 }
@@ -897,7 +1007,7 @@ fun PhotoGalleryModal(
     onDismiss: () -> Unit
 ) {
     val allImages = getAllImages(listing)
-    
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -905,7 +1015,8 @@ fun PhotoGalleryModal(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.8f)
+                .fillMaxHeight(0.8f),
+            shape = RoundedCornerShape(16.dp)
         ) {
             Column {
                 Row(
@@ -917,16 +1028,16 @@ fun PhotoGalleryModal(
                 ) {
                     Text(
                         text = "Photo Gallery",
-                        fontSize = 20.sp,
+                        fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(Icons.Default.Close, contentDescription = "Close")
                     }
                 }
-                
+
                 Divider()
-                
+
                 LazyColumn(
                     modifier = Modifier.padding(16.dp),
                     contentPadding = PaddingValues(bottom = 16.dp)
@@ -935,15 +1046,23 @@ fun PhotoGalleryModal(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(200.dp)
+                                .height(220.dp)
                                 .padding(bottom = 12.dp)
-                                .clip(RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(12.dp))
                         ) {
                             AsyncImage(
-                                model = imageUrl,
+                                model = CoilImageRequest.Builder(LocalContext.current)
+                                    .data(imageUrl)
+                                    .crossfade(true)
+                                    .size(1080, 1080)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    .diskCachePolicy(CachePolicy.ENABLED)
+                                    .build(),
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize(),
-                                contentScale = ContentScale.Crop
+                                contentScale = ContentScale.Crop,
+                                placeholder = painterResource(R.drawable.ic_launcher_background),
+                                error = painterResource(R.drawable.ic_launcher_background)
                             )
                         }
                     }
@@ -956,18 +1075,18 @@ fun PhotoGalleryModal(
 // Helper functions
 fun getAllImages(listing: TravelListing): List<String> {
     val images = mutableListOf<String>()
-    
+
     // Add main photos
     images.addAll(listing.photos)
-    
+
     // Add photo URLs
     images.addAll(listing.photoUrls)
-    
+
     // Add place covered images
     listing.placesCovered.forEach { place ->
         images.addAll(place.imageUrls)
     }
-    
+
     return images.distinct()
 }
 

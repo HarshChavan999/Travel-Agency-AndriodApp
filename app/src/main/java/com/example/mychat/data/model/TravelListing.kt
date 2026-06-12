@@ -78,5 +78,6 @@ data class Booking(
     val totalAmount: Double,
     val status: String = "pending", // pending, confirmed, cancelled
     val createdAt: Long = System.currentTimeMillis(),
-    val bookingReference: String
+    val bookingReference: String,
+    val packageType: String? = null // international, domestic - matches WebApp
 )

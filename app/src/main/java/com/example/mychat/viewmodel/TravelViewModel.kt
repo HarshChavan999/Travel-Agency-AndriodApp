@@ -27,6 +27,12 @@ class TravelViewModel(private val travelRepository: TravelRepository) : ViewMode
     private val _bookingResult = MutableStateFlow<Result<String>?>(null)
     val bookingResult: StateFlow<Result<String>?> = _bookingResult.asStateFlow()
 
+    private val _userBookings = MutableStateFlow<List<Booking>>(emptyList())
+    val userBookings: StateFlow<List<Booking>> = _userBookings.asStateFlow()
+
+    private val _isLoadingBookings = MutableStateFlow(false)
+    val isLoadingBookings: StateFlow<Boolean> = _isLoadingBookings.asStateFlow()
+
     init {
         loadListings()
     }
@@ -74,5 +80,15 @@ class TravelViewModel(private val travelRepository: TravelRepository) : ViewMode
 
     fun generateBookingReference(): String {
         return "BK${System.currentTimeMillis().toString().takeLast(6)}"
+    }
+
+    fun loadUserBookings(userId: String) {
+        viewModelScope.launch {
+            _isLoadingBookings.value = true
+            travelRepository.getUserBookings(userId).collect { bookings ->
+                _userBookings.value = bookings
+                _isLoadingBookings.value = false
+            }
+        }
     }
 }

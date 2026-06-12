@@ -93,4 +93,13 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
             }
         }
     }
+
+    fun updateProfile(name: String, phone: String) {
+        viewModelScope.launch {
+            val result = authRepository.updateProfile(name, phone)
+            if (result.isFailure) {
+                android.util.Log.e("AuthViewModel", "Failed to update profile: ${result.exceptionOrNull()?.message}")
+            }
+        }
+    }
 }

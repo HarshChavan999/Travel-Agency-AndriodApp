@@ -6,5 +6,7 @@ data class User(
     val displayName: String,
     val isOnline: Boolean = false,
     val role: String = "user", // "admin", "agency", "user"
-    val approved: Boolean = true
+    val approved: Boolean = true,
+    val phone: String = "",
+    val avatarUrl: String? = null
 )

@@ -24,10 +24,15 @@ import com.example.mychat.data.repository.AuthRepository
 import com.example.mychat.data.repository.ChatRepository
 import com.example.mychat.data.repository.TravelRepository
 import com.example.mychat.data.repository.WishlistRepository
+import com.example.mychat.ui.components.AnnouncementDialog
+import com.example.mychat.ui.components.ForceUpdateDialog
+import com.example.mychat.ui.components.MaintenanceDialog
+import com.example.mychat.ui.components.OptionalUpdateDialog
 import com.example.mychat.ui.screens.*
 import com.example.mychat.ui.theme.MychatTheme
 import com.example.mychat.viewmodel.AuthViewModel
 import com.example.mychat.viewmodel.ChatViewModel
+import com.example.mychat.viewmodel.ConfigViewModel
 import com.example.mychat.viewmodel.TravelViewModel
 import com.example.mychat.viewmodel.WishlistViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -116,7 +121,9 @@ enum class Screen {
     LISTING_DETAIL,
     BOOKING,
     CHAT,
-    WISHLIST
+    WISHLIST,
+    MY_BOOKINGS,
+    PROFILE
 }
 
 @Composable
@@ -130,6 +137,10 @@ fun TravelNavigation(
     var currentScreen by remember { mutableStateOf(Screen.DASHBOARD) }
     var selectedListing by remember { mutableStateOf<TravelListing?>(null) }
     var chatWithAgency by remember { mutableStateOf<String?>(null) }
+    var navigateToBookings by remember { mutableStateOf(false) }
+
+    // Get the current user state
+    val currentUserState by authViewModel.currentUser.collectAsState()
 
     // Initialize WishlistViewModel here
     val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
@@ -176,6 +187,12 @@ fun TravelNavigation(
                 },
                 onWishlistNavigate = {
                     currentScreen = Screen.WISHLIST
+                },
+                onBookingsNavigate = {
+                    currentScreen = Screen.MY_BOOKINGS
+                },
+                onProfileNavigate = {
+                    currentScreen = Screen.PROFILE
                 },
                 onSignOut = {
                     authViewModel.signOut()
@@ -298,6 +315,36 @@ fun TravelNavigation(
                 }
             )
         }
+
+        Screen.MY_BOOKINGS -> {
+            MyBookingsScreen(
+                travelViewModel = travelViewModel,
+                currentUserId = currentUser.id,
+                onBack = {
+                    currentScreen = Screen.DASHBOARD
+                },
+                onExplorePackages = {
+                    currentScreen = Screen.DASHBOARD
+                }
+            )
+        }
+
+        Screen.PROFILE -> {
+            val profileUser = currentUserState ?: currentUser
+            ProfileScreen(
+                currentUser = profileUser,
+                authViewModel = authViewModel,
+                onBack = {
+                    currentScreen = Screen.DASHBOARD
+                },
+                onBookingsNavigate = {
+                    currentScreen = Screen.MY_BOOKINGS
+                },
+                onWishlistNavigate = {
+                    currentScreen = Screen.WISHLIST
+                }
+            )
+        }
     }
 }
 
@@ -309,6 +356,7 @@ fun TravelApp(
 ) {
     // Get application context for network monitoring
     val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context as? android.app.Activity
 
     // Initialize dependencies - use remember to prevent recreation on recomposition
     val authRepository = remember { AuthRepository() }
@@ -321,6 +369,15 @@ fun TravelApp(
     val chatViewModel: ChatViewModel = viewModel { ChatViewModel(chatRepository) }
     val travelViewModel: TravelViewModel = viewModel { TravelViewModel(travelRepository) }
     val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
+
+    // Initialize ConfigViewModel for remote configuration
+    val configViewModel: ConfigViewModel = viewModel()
+    val appConfig by configViewModel.appConfig.collectAsState()
+    val showMaintenance by configViewModel.showMaintenanceDialog.collectAsState()
+    val showForceUpdate by configViewModel.showForceUpdateDialog.collectAsState()
+    val showOptionalUpdate by configViewModel.showOptionalUpdateDialog.collectAsState()
+    val showAnnouncement by configViewModel.showAnnouncement.collectAsState()
+    val configLoading by configViewModel.isLoading.collectAsState()
 
     // Notify MainActivity that AuthRepository is ready
     LaunchedEffect(authRepository) {
@@ -338,35 +395,111 @@ fun TravelApp(
         }
     }
 
+    // Perform startup checks once config is loaded
+    val configLoaded by produceState(initialValue = false) {
+        // Wait for config to finish loading
+        configViewModel.appConfig.collect {
+            if (!configViewModel.isLoading.value && it.maintenanceMode == it.maintenanceMode) {
+                // Config loaded - trigger startup checks
+                activity?.let { act ->
+                    configViewModel.performStartupChecks(act)
+                }
+                value = true
+            }
+        }
+    }
+
+    // Show loading indicator while config is being fetched
+    if (configLoading && configViewModel.appConfig.value.maintenanceMode == configViewModel.appConfig.value.maintenanceMode) {
+        // Config may still be loading - show a brief loading state
+        // but don't block UI indefinitely since defaults are available
+    }
+
     // Main app navigation based on auth state
     val currentUser by authViewModel.currentUser.collectAsState()
     val authState by authViewModel.authState.collectAsState()
 
-    when {
-        currentUser != null -> {
-            // User is authenticated, show travel interface
-            TravelNavigation(
-                authViewModel = authViewModel,
-                chatViewModel = chatViewModel,
-                travelViewModel = travelViewModel,
-                wishlistRepository = wishlistRepository,
-                currentUser = currentUser!!
-            )
+    // Compose the main content
+    val mainContent: @Composable () -> Unit = {
+        when {
+            currentUser != null -> {
+                // User is authenticated, show travel interface
+                TravelNavigation(
+                    authViewModel = authViewModel,
+                    chatViewModel = chatViewModel,
+                    travelViewModel = travelViewModel,
+                    wishlistRepository = wishlistRepository,
+                    currentUser = currentUser!!
+                )
+            }
+            else -> {
+                // User not authenticated, show login screen
+                LoginScreen(
+                    authState = authState,
+                    onSignIn = { email, password ->
+                        authViewModel.signIn(email, password)
+                    },
+                    onSignUp = { email, password ->
+                        authViewModel.signUp(email, password)
+                    },
+                    onAnonymousSignIn = {
+                        authViewModel.signInAnonymously()
+                    },
+                    onGoogleSignIn = onGoogleSignIn
+                )
+            }
         }
-        else -> {
-            // User not authenticated, show login screen
-            LoginScreen(
-                authState = authState,
-                onSignIn = { email, password ->
-                    authViewModel.signIn(email, password)
-                },
-                onSignUp = { email, password ->
-                    authViewModel.signUp(email, password)
-                },
-                onAnonymousSignIn = {
-                    authViewModel.signInAnonymously()
-                },
-                onGoogleSignIn = onGoogleSignIn
+    }
+
+    // Render main content and dialogs on top
+    Box(modifier = Modifier.fillMaxSize()) {
+        mainContent()
+
+        // Config dialogs (rendered on top of everything)
+        if (showMaintenance) {
+            activity?.let { act ->
+                MaintenanceDialog(
+                    config = appConfig,
+                    onDismiss = { configViewModel.dismissMaintenance() }
+                )
+            }
+        }
+
+        if (showForceUpdate) {
+            activity?.let { act ->
+                ForceUpdateDialog(
+                    config = appConfig,
+                    activity = act,
+                    onDismiss = { configViewModel.dismissForceUpdate() },
+                    onUpdate = {
+                        configViewModel.openPlayStore(act)
+                        configViewModel.dismissForceUpdate()
+                    }
+                )
+            }
+        }
+
+        if (showOptionalUpdate) {
+            activity?.let { act ->
+                OptionalUpdateDialog(
+                    config = appConfig,
+                    activity = act,
+                    onDismiss = { configViewModel.dismissOptionalUpdate() },
+                    onUpdate = {
+                        configViewModel.openPlayStore(act)
+                        configViewModel.dismissOptionalUpdate()
+                    }
+                )
+            }
+        }
+
+        if (showAnnouncement) {
+            AnnouncementDialog(
+                config = appConfig,
+                onDismiss = { configViewModel.dismissAnnouncement() },
+                onLinkClick = {
+                    activity?.let { act -> configViewModel.openAnnouncementLink(act) }
+                }
             )
         }
     }

@@ -138,6 +138,28 @@ class AuthRepository {
         return GoogleSignIn.getClient(context, gso)
     }
 
+    suspend fun updateProfile(name: String, phone: String): Result<Unit> {
+        return try {
+            val user = firebaseAuth.currentUser ?: return Result.failure(Exception("No authenticated user"))
+            val db = FirebaseFirestore.getInstance()
+            
+            val updates = hashMapOf<String, Any>(
+                "name" to name,
+                "phone" to phone
+            )
+            db.collection("users").document(user.uid).update(updates as Map<String, Any>).await()
+            
+            // Update current user in-memory
+            _currentUser.value = _currentUser.value?.copy(
+                displayName = name,
+                phone = phone
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     fun signOut() {
         firebaseAuth.signOut()
         _authState.value = AuthState.Idle
@@ -170,7 +192,9 @@ class AuthRepository {
                     displayName = displayName ?: email ?: "Anonymous",
                     isOnline = true,
                     role = data?.get("role") as? String ?: "user",
-                    approved = data?.get("approved") as? Boolean ?: false
+                    approved = data?.get("approved") as? Boolean ?: false,
+                    phone = data?.get("phone") as? String ?: data?.get("contactNumber") as? String ?: "",
+                    avatarUrl = data?.get("avatarUrl") as? String
                 )
             } else {
                 // User document doesn't exist, create default user

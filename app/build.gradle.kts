@@ -22,8 +22,8 @@ android {
         applicationId = "com.example.mychat"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,7 +64,7 @@ android {
 
 firebaseAppDistribution {
     appId = "1:387994411670:android:3898d613d93cf83e9f18b7"
-    releaseNotes = "New travel listing functionality"
+    releaseNotes = "v2.0 - Remote Config System: Maintenance mode, feature flags, force/optional updates, dynamic announcements, configurable UI strings. Control app behavior from Firebase Console without publishing new APK."
     groups = "testers"
     testers = "harshnpc21@gmail.com"
 }
@@ -78,6 +78,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation("androidx.compose.material:material-icons-extended")
     // Unit testing
     testImplementation(libs.junit)
     testImplementation(libs.mockito.core)
@@ -101,6 +102,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
+    implementation(libs.firebase.config.ktx)
 
     // Fragment
     implementation(libs.androidx.fragment.ktx)

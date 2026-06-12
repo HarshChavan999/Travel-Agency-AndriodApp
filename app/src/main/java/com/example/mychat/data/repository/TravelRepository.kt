@@ -416,16 +416,25 @@ class TravelRepository(private val authRepository: AuthRepository) {
     fun getUserBookings(userId: String): Flow<List<Booking>> = callbackFlow {
         val listener = db.collection("bookings")
             .whereEqualTo("userId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    android.util.Log.e("TravelRepository", "Error fetching bookings", error)
+                    trySend(emptyList())
                     return@addSnapshotListener
                 }
 
                 val bookings = snapshot?.documents?.mapNotNull { document ->
                     try {
                         val data = document.data ?: return@mapNotNull null
+                        
+                        // Handle createdAt - could be Timestamp (from WebApp) or Long (epoch millis)
+                        val createdAtMillis = when (val ca = data["createdAt"]) {
+                            is com.google.firebase.Timestamp -> ca.toDate().time
+                            is Long -> ca
+                            is Number -> ca.toLong()
+                            else -> System.currentTimeMillis()
+                        }
+                        
                         Booking(
                             id = document.id,
                             userId = data["userId"] as? String ?: "",
@@ -442,15 +451,18 @@ class TravelRepository(private val authRepository: AuthRepository) {
                             preferences = (data["preferences"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                             totalAmount = (data["totalAmount"] as? Number)?.toDouble() ?: 0.0,
                             status = data["status"] as? String ?: "pending",
-                            createdAt = (data["createdAt"] as? Number)?.toLong() ?: 0L,
-                            bookingReference = data["bookingReference"] as? String ?: ""
+                            createdAt = createdAtMillis,
+                            bookingReference = data["bookingReference"] as? String ?: "",
+                            packageType = data["packageType"] as? String
                         )
                     } catch (e: Exception) {
                         null // Skip malformed documents
                     }
                 } ?: emptyList()
 
-                trySend(bookings)
+                // Sort client-side by createdAt descending (most recent first) - like WebApp does
+                val sortedBookings = bookings.sortedByDescending { it.createdAt }
+                trySend(sortedBookings)
             }
 
         awaitClose {

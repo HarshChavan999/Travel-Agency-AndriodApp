@@ -73,11 +73,11 @@ class EnhancedPackageDisplayTest {
 
         // Test package type display logic
         val packageTypeDisplay = when (listing.packageType) {
-            "international" -> "🌍 International"
-            "domestic" -> "🏠 Domestic"
-            else -> "✈️ Package"
+            "international" -> "International"
+            "domestic" -> "Domestic"
+            else -> "Package"
         }
-        assertEquals("🌍 International", packageTypeDisplay)
+        assertEquals("International", packageTypeDisplay)
 
         // Test location display logic
         val locationDisplay = when (listing.packageType) {
