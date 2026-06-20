@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class ChatViewModel(
     private val chatRepository: ChatRepository
@@ -25,6 +26,9 @@ class ChatViewModel(
 
     private val _currentChatUser = MutableStateFlow<User?>(null)
     val currentChatUser: StateFlow<User?> = _currentChatUser
+
+    private val _userNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    val userNames: StateFlow<Map<String, String>> = _userNames
 
     // History loading states
     private val _isLoadingHistory = MutableStateFlow(false)
@@ -76,6 +80,10 @@ class ChatViewModel(
         chatRepository.setCurrentChatUser(user)
     }
 
+    fun markAllMessagesFromUserAsRead(senderId: String) {
+        chatRepository.markAllMessagesFromUserAsRead(senderId)
+    }
+
     fun clearCurrentChatUser() {
         chatRepository.clearCurrentChatUser()
     }
@@ -90,6 +98,11 @@ class ChatViewModel(
 
     fun clearMessages() {
         chatRepository.clearMessages()
+    }
+
+    /** Ensures the Firestore snapshot listeners are active (e.g. when viewing the chat list) */
+    fun ensureListening() {
+        chatRepository.ensureListening()
     }
 
     // History loading functionality
@@ -132,6 +145,29 @@ class ChatViewModel(
 
         // Load initial history
         loadChatHistory()
+    }
+
+    fun fetchUserName(userId: String) {
+        if (_userNames.value.containsKey(userId)) return
+        viewModelScope.launch {
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val doc = db.collection("users").document(userId).get().await()
+                if (doc.exists()) {
+                    val companyName = doc.getString("companyName")
+                    val name = doc.getString("name")
+                    val displayName = doc.getString("displayName")
+                    
+                    val userName = companyName ?: name ?: displayName ?: userId.take(8).uppercase()
+                    _userNames.value = _userNames.value + (userId to userName)
+                    android.util.Log.d("ChatViewModel", "Fetched user name for $userId: $userName")
+                } else {
+                    _userNames.value = _userNames.value + (userId to userId.take(8).uppercase())
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "Error fetching user name for $userId: ${e.message}")
+            }
+        }
     }
 
     override fun onCleared() {

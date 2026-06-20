@@ -1,22 +1,20 @@
 package com.example.mychat
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.core.content.ContextCompat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.mychat.data.model.TravelListing
 import com.example.mychat.data.model.User
@@ -24,6 +22,8 @@ import com.example.mychat.data.repository.AuthRepository
 import com.example.mychat.data.repository.ChatRepository
 import com.example.mychat.data.repository.TravelRepository
 import com.example.mychat.data.repository.WishlistRepository
+import com.example.mychat.service.MyFirebaseMessagingService
+import com.example.mychat.service.NotificationHelper
 import com.example.mychat.ui.components.AnnouncementDialog
 import com.example.mychat.ui.components.ForceUpdateDialog
 import com.example.mychat.ui.components.MaintenanceDialog
@@ -37,45 +37,35 @@ import com.example.mychat.viewmodel.TravelViewModel
 import com.example.mychat.viewmodel.WishlistViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.common.api.ApiException
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private lateinit var googleSignInLauncher: ActivityResultLauncher<Intent>
     private var onGoogleSignInResult: ((com.google.android.gms.auth.api.signin.GoogleSignInAccount?) -> Unit)? = null
+    private var authRepositoryRef: AuthRepository? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Create notification channel for push notifications
+        NotificationHelper.createNotificationChannel(this)
+
+        // Handle notification tap intent - extract navigation data
+        handleNotificationIntent(intent)
 
         // Initialize Google Sign-In launcher
         googleSignInLauncher = registerForActivityResult(
             ActivityResultContracts.StartActivityForResult()
         ) { result ->
-            android.util.Log.d("GoogleSignIn", "Activity result received - resultCode: ${result.resultCode}, data: ${result.data}")
-
             if (result.resultCode == RESULT_OK) {
-                android.util.Log.d("GoogleSignIn", "RESULT_OK received, processing Google Sign-In result")
                 val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                 try {
                     val account = task.getResult(ApiException::class.java)
-                    if (account != null) {
-                        android.util.Log.d("GoogleSignIn", "Google Sign-In successful! Account: ${account.email}")
-                        // Success - call the callback
-                        onGoogleSignInResult?.invoke(account)
-                    } else {
-                        android.util.Log.e("GoogleSignIn", "Account is null after successful result")
-                        onGoogleSignInResult?.invoke(null)
-                    }
+                    onGoogleSignInResult?.invoke(account)
                 } catch (e: ApiException) {
-                    // Google Sign-In failed
-                    android.util.Log.e("GoogleSignIn", "Google sign-in failed: ${e.statusCode} - ${e.message}")
-                    android.util.Log.e("GoogleSignIn", "Exception details: ${e.localizedMessage}")
+                    android.util.Log.e("GoogleSignIn", "Google sign-in failed: ${e.statusCode}")
                     onGoogleSignInResult?.invoke(null)
                 }
-            } else if (result.resultCode == RESULT_CANCELED) {
-                android.util.Log.d("GoogleSignIn", "User cancelled Google Sign-In")
-                onGoogleSignInResult?.invoke(null)
             } else {
-                android.util.Log.d("GoogleSignIn", "Google sign-in failed with result code: ${result.resultCode}")
                 onGoogleSignInResult?.invoke(null)
             }
         }
@@ -83,35 +73,45 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MychatTheme {
-                var authRepository: AuthRepository? = null
-
                 TravelApp(
                     onGoogleSignIn = {
-                        android.util.Log.d("GoogleSignIn", "Google Sign-In button clicked, starting sign-in flow")
-                        try {
-                            // Use the authRepository from the composable to get consistent GoogleSignInClient
-                            authRepository?.let { repo ->
-                                val googleSignInClient = repo.getGoogleSignInClient(this@MainActivity)
-                                android.util.Log.d("GoogleSignIn", "GoogleSignInClient created successfully")
-                                val signInIntent = googleSignInClient.signInIntent
-                                android.util.Log.d("GoogleSignIn", "Sign-in intent obtained, launching...")
-                                googleSignInLauncher.launch(signInIntent)
-                            } ?: run {
-                                android.util.Log.e("GoogleSignIn", "AuthRepository not initialized yet")
-                            }
-                        } catch (e: Exception) {
-                            android.util.Log.e("GoogleSignIn", "Error starting Google Sign-In: ${e.message}")
-                            e.printStackTrace()
+                        authRepositoryRef?.let { repo ->
+                            val googleSignInClient = repo.getGoogleSignInClient(this@MainActivity)
+                            googleSignInLauncher.launch(googleSignInClient.signInIntent)
                         }
                     },
                     onSetGoogleSignInResultCallback = { callback ->
                         onGoogleSignInResult = callback
                     },
                     onAuthRepositoryReady = { repo ->
-                        authRepository = repo
+                        authRepositoryRef = repo
                     }
                 )
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNotificationIntent(intent)
+    }
+
+    private fun handleNotificationIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("navigate_to_chat", false) == true) {
+            val chatUserId = intent.getStringExtra("chat_user_id") ?: return
+            android.util.Log.d("MainActivity", "Notification tap: navigate to chat with user: $chatUserId")
+            intent.removeExtra("navigate_to_chat")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Clear notifications when app is opened
+        try {
+            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            notificationManager.cancel(1001)
+        } catch (e: Exception) {
+            android.util.Log.w("MainActivity", "Error clearing notifications: ${e.message}")
         }
     }
 }
@@ -121,6 +121,7 @@ enum class Screen {
     LISTING_DETAIL,
     BOOKING,
     CHAT,
+    CHAT_LIST,
     WISHLIST,
     MY_BOOKINGS,
     PROFILE
@@ -138,15 +139,11 @@ fun TravelNavigation(
     var selectedListing by remember { mutableStateOf<TravelListing?>(null) }
     var chatWithAgency by remember { mutableStateOf<String?>(null) }
     var navigateToBookings by remember { mutableStateOf(false) }
+    var chatBackDestination by remember { mutableStateOf(Screen.DASHBOARD) }
 
-    // Get the current user state
     val currentUserState by authViewModel.currentUser.collectAsState()
 
-    // Initialize WishlistViewModel here
     val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
-
-    // Firestore automatically handles authentication, no manual connect/disconnect needed
-    // Just ensure chat history is loaded when entering chat
 
     val listings by travelViewModel.listings.collectAsState()
     val isLoadingListings by travelViewModel.isLoadingListings.collectAsState()
@@ -155,6 +152,8 @@ fun TravelNavigation(
     val bookingResult by travelViewModel.bookingResult.collectAsState()
 
     val chatMessages by chatViewModel.chatMessages.collectAsState()
+    val allMessages by chatViewModel.messages.collectAsState()
+    val currentChatUserState by chatViewModel.currentChatUser.collectAsState()
     val isLoadingHistory by chatViewModel.isLoadingHistory.collectAsState()
     val hasMoreHistory by chatViewModel.hasMoreHistory.collectAsState()
     val historyError by chatViewModel.historyError.collectAsState()
@@ -166,13 +165,11 @@ fun TravelNavigation(
                 listings = listings,
                 isLoading = isLoadingListings,
                 onListingClick = { listing ->
-                    // Load the complete listing with enhanced data
                     travelViewModel.loadListingById(listing.id)
                     currentScreen = Screen.LISTING_DETAIL
                 },
                 onChatClick = { listing ->
                     chatWithAgency = listing.agencyId
-                    // For demo, we'll use the agency ID as the user ID to chat with
                     val agencyUser = User(
                         id = listing.agencyId,
                         email = "${listing.agencyId}@agency.com",
@@ -180,23 +177,17 @@ fun TravelNavigation(
                         isOnline = true
                     )
                     chatViewModel.setCurrentChatUser(agencyUser)
+                    chatBackDestination = Screen.DASHBOARD
                     currentScreen = Screen.CHAT
                 },
                 onWishlistClick = { listing ->
                     wishlistViewModel.toggleWishlist(listing.id)
                 },
-                onWishlistNavigate = {
-                    currentScreen = Screen.WISHLIST
-                },
-                onBookingsNavigate = {
-                    currentScreen = Screen.MY_BOOKINGS
-                },
-                onProfileNavigate = {
-                    currentScreen = Screen.PROFILE
-                },
-                onSignOut = {
-                    authViewModel.signOut()
-                },
+                onWishlistNavigate = { currentScreen = Screen.WISHLIST },
+                onBookingsNavigate = { currentScreen = Screen.MY_BOOKINGS },
+                onChatListNavigate = { currentScreen = Screen.CHAT_LIST },
+                onProfileNavigate = { currentScreen = Screen.PROFILE },
+                onSignOut = { authViewModel.signOut() },
                 wishlistViewModel = wishlistViewModel
             )
         }
@@ -218,14 +209,11 @@ fun TravelNavigation(
                             isOnline = true
                         )
                         chatViewModel.setCurrentChatUser(agencyUser)
+                        chatBackDestination = Screen.LISTING_DETAIL
                         currentScreen = Screen.CHAT
                     },
-                    onBookNow = {
-                        currentScreen = Screen.BOOKING
-                    },
+                    onBookNow = { currentScreen = Screen.BOOKING },
                     onWishlistToggle = {
-                        // Wishlist functionality - toggle wishlist state
-                        // For now, just show a toast or log the action
                         android.util.Log.d("Wishlist", "Toggled wishlist for ${listing.title}")
                     },
                     isWishlisted = false
@@ -238,9 +226,7 @@ fun TravelNavigation(
                 BookingScreen(
                     listing = listing,
                     currentUser = currentUser,
-                    onBack = {
-                        currentScreen = Screen.LISTING_DETAIL
-                    },
+                    onBack = { currentScreen = Screen.LISTING_DETAIL },
                     onBookingComplete = {
                         travelViewModel.clearBookingResult()
                         travelViewModel.clearSelectedListing()
@@ -248,28 +234,20 @@ fun TravelNavigation(
                     },
                     isCreatingBooking = isCreatingBooking,
                     bookingResult = bookingResult,
-                    onCreateBooking = { booking ->
-                        travelViewModel.createBooking(booking)
-                    },
-                    generateBookingReference = {
-                        travelViewModel.generateBookingReference()
-                    }
+                    onCreateBooking = { booking -> travelViewModel.createBooking(booking) },
+                    generateBookingReference = { travelViewModel.generateBookingReference() }
                 )
             }
         }
 
         Screen.CHAT -> {
-            chatWithAgency?.let { agencyId ->
-                val agencyUser = User(
-                    id = agencyId,
-                    email = "$agencyId@agency.com",
-                    displayName = selectedListingState?.agencyName ?: "Travel Agency",
-                    isOnline = true
-                )
-
-                // Initialize chat history when entering chat
+            currentChatUserState?.let { agencyUser ->
                 LaunchedEffect(agencyUser) {
                     chatViewModel.initializeChatHistory()
+                }
+
+                LaunchedEffect(chatMessages) {
+                    chatViewModel.markAllMessagesFromUserAsRead(agencyUser.id)
                 }
 
                 ChatScreen(
@@ -279,12 +257,11 @@ fun TravelNavigation(
                     isLoadingHistory = isLoadingHistory,
                     hasMoreHistory = hasMoreHistory,
                     historyError = historyError,
-                    onSendMessage = { content ->
-                        chatViewModel.sendMessage(agencyUser.id, content)
-                    },
+                    onSendMessage = { content -> chatViewModel.sendMessage(agencyUser.id, content) },
                     onBack = {
                         chatWithAgency = null
-                        currentScreen = if (selectedListingState != null) Screen.LISTING_DETAIL else Screen.DASHBOARD
+                        chatViewModel.clearCurrentChatUser()
+                        currentScreen = chatBackDestination
                     },
                     onLoadMoreHistory = { chatViewModel.loadMoreHistory() },
                     onClearHistoryError = { chatViewModel.clearHistoryError() }
@@ -308,11 +285,10 @@ fun TravelNavigation(
                         isOnline = true
                     )
                     chatViewModel.setCurrentChatUser(agencyUser)
+                    chatBackDestination = Screen.WISHLIST
                     currentScreen = Screen.CHAT
                 },
-                onBack = {
-                    currentScreen = Screen.DASHBOARD
-                }
+                onBack = { currentScreen = Screen.DASHBOARD }
             )
         }
 
@@ -320,11 +296,26 @@ fun TravelNavigation(
             MyBookingsScreen(
                 travelViewModel = travelViewModel,
                 currentUserId = currentUser.id,
-                onBack = {
-                    currentScreen = Screen.DASHBOARD
-                },
-                onExplorePackages = {
-                    currentScreen = Screen.DASHBOARD
+                onBack = { currentScreen = Screen.DASHBOARD },
+                onExplorePackages = { currentScreen = Screen.DASHBOARD }
+            )
+        }
+
+        Screen.CHAT_LIST -> {
+            // Ensure listeners are active when viewing the chat list
+            LaunchedEffect(currentUser?.id) {
+                chatViewModel.ensureListening()
+            }
+            ChatListScreen(
+                currentUser = currentUser,
+                messages = allMessages,
+                chatViewModel = chatViewModel,
+                onBack = { currentScreen = Screen.DASHBOARD },
+                onOpenChat = { agencyUser ->
+                    chatWithAgency = agencyUser.id
+                    chatViewModel.setCurrentChatUser(agencyUser)
+                    chatBackDestination = Screen.CHAT_LIST
+                    currentScreen = Screen.CHAT
                 }
             )
         }
@@ -334,15 +325,8 @@ fun TravelNavigation(
             ProfileScreen(
                 currentUser = profileUser,
                 authViewModel = authViewModel,
-                onBack = {
-                    currentScreen = Screen.DASHBOARD
-                },
-                onBookingsNavigate = {
-                    currentScreen = Screen.MY_BOOKINGS
-                },
-                onWishlistNavigate = {
-                    currentScreen = Screen.WISHLIST
-                }
+                onBack = { currentScreen = Screen.DASHBOARD },
+                onWishlistNavigate = { currentScreen = Screen.WISHLIST }
             )
         }
     }
@@ -354,23 +338,19 @@ fun TravelApp(
     onSetGoogleSignInResultCallback: ((com.google.android.gms.auth.api.signin.GoogleSignInAccount?) -> Unit) -> Unit,
     onAuthRepositoryReady: (AuthRepository) -> Unit
 ) {
-    // Get application context for network monitoring
     val context = androidx.compose.ui.platform.LocalContext.current
     val activity = context as? android.app.Activity
 
-    // Initialize dependencies - use remember to prevent recreation on recomposition
     val authRepository = remember { AuthRepository() }
     val chatRepository = remember { ChatRepository(authRepository) }
     val travelRepository = remember { TravelRepository(authRepository) }
     val wishlistRepository = remember { WishlistRepository(authRepository) }
 
-    // Initialize ViewModels
     val authViewModel: AuthViewModel = viewModel { AuthViewModel(authRepository) }
     val chatViewModel: ChatViewModel = viewModel { ChatViewModel(chatRepository) }
     val travelViewModel: TravelViewModel = viewModel { TravelViewModel(travelRepository) }
     val wishlistViewModel: WishlistViewModel = viewModel { WishlistViewModel(wishlistRepository) }
 
-    // Initialize ConfigViewModel for remote configuration
     val configViewModel: ConfigViewModel = viewModel()
     val appConfig by configViewModel.appConfig.collectAsState()
     val showMaintenance by configViewModel.showMaintenanceDialog.collectAsState()
@@ -379,51 +359,36 @@ fun TravelApp(
     val showAnnouncement by configViewModel.showAnnouncement.collectAsState()
     val configLoading by configViewModel.isLoading.collectAsState()
 
-    // Notify MainActivity that AuthRepository is ready
     LaunchedEffect(authRepository) {
         onAuthRepositoryReady(authRepository)
     }
 
-    // Set up Google Sign-In result callback
     onSetGoogleSignInResultCallback { account ->
         if (account != null) {
-            android.util.Log.d("GoogleSignIn", "Account received, starting Firebase sign-in: ${account.email}")
             authViewModel.signInWithGoogle(account)
-        } else {
-            android.util.Log.d("GoogleSignIn", "No account received (user cancelled or error)")
-            // Don't change auth state here - let user try again
         }
     }
 
-    // Perform startup checks once config is loaded
     val configLoaded by produceState(initialValue = false) {
-        // Wait for config to finish loading
         configViewModel.appConfig.collect {
-            if (!configViewModel.isLoading.value && it.maintenanceMode == it.maintenanceMode) {
-                // Config loaded - trigger startup checks
-                activity?.let { act ->
-                    configViewModel.performStartupChecks(act)
-                }
+            if (!configViewModel.isLoading.value) {
+                activity?.let { act -> configViewModel.performStartupChecks(act) }
                 value = true
             }
         }
     }
 
-    // Show loading indicator while config is being fetched
-    if (configLoading && configViewModel.appConfig.value.maintenanceMode == configViewModel.appConfig.value.maintenanceMode) {
-        // Config may still be loading - show a brief loading state
-        // but don't block UI indefinitely since defaults are available
-    }
-
-    // Main app navigation based on auth state
     val currentUser by authViewModel.currentUser.collectAsState()
     val authState by authViewModel.authState.collectAsState()
 
-    // Compose the main content
+    // Request notification permission and register FCM token when user is logged in
+    if (currentUser != null) {
+        RequestNotificationPermissionAndRegister()
+    }
+
     val mainContent: @Composable () -> Unit = {
         when {
             currentUser != null -> {
-                // User is authenticated, show travel interface
                 TravelNavigation(
                     authViewModel = authViewModel,
                     chatViewModel = chatViewModel,
@@ -433,29 +398,20 @@ fun TravelApp(
                 )
             }
             else -> {
-                // User not authenticated, show login screen
                 LoginScreen(
                     authState = authState,
-                    onSignIn = { email, password ->
-                        authViewModel.signIn(email, password)
-                    },
-                    onSignUp = { email, password ->
-                        authViewModel.signUp(email, password)
-                    },
-                    onAnonymousSignIn = {
-                        authViewModel.signInAnonymously()
-                    },
+                    onSignIn = { email, password -> authViewModel.signIn(email, password) },
+                    onSignUp = { email, password -> authViewModel.signUp(email, password) },
+                    onAnonymousSignIn = { authViewModel.signInAnonymously() },
                     onGoogleSignIn = onGoogleSignIn
                 )
             }
         }
     }
 
-    // Render main content and dialogs on top
     Box(modifier = Modifier.fillMaxSize()) {
         mainContent()
 
-        // Config dialogs (rendered on top of everything)
         if (showMaintenance) {
             activity?.let { act ->
                 MaintenanceDialog(
@@ -501,6 +457,45 @@ fun TravelApp(
                     activity?.let { act -> configViewModel.openAnnouncementLink(act) }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun RequestNotificationPermissionAndRegister() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        // Android 13+: Need runtime permission
+        val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) { isGranted ->
+            if (isGranted) {
+                android.util.Log.d("FCM", "Notification permission granted")
+                MyFirebaseMessagingService().registerFCMToken()
+            } else {
+                android.util.Log.w("FCM", "Notification permission denied")
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            if (ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                android.util.Log.d("FCM", "Requesting notification permission")
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                android.util.Log.d("FCM", "Permission already granted, registering FCM token")
+                MyFirebaseMessagingService().registerFCMToken()
+            }
+        }
+    } else {
+        // Pre-Android 13: No runtime permission needed
+        LaunchedEffect(Unit) {
+            android.util.Log.d("FCM", "Pre-Tiramisu, registering FCM token directly")
+            MyFirebaseMessagingService().registerFCMToken()
         }
     }
 }

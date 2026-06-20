@@ -162,7 +162,6 @@ fun EnhancedListingDetailScreen(
                 // Action Buttons
                 ModernActionButtonsSection(
                     listing = listing,
-                    onBookNow = onBookNow,
                     onChatClick = onChatClick,
                     onBack = onBack,
                     currency = currency
@@ -931,38 +930,11 @@ fun PricingBreakdownSection(
 @Composable
 fun ModernActionButtonsSection(
     listing: TravelListing,
-    onBookNow: () -> Unit,
     onChatClick: () -> Unit,
     onBack: () -> Unit,
     currency: String
 ) {
     Column(modifier = Modifier.padding(vertical = 16.dp)) {
-        // Book Now - Primary
-        Button(
-            onClick = onBookNow,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF2563EB)
-            )
-        ) {
-                    Icon(
-                        Icons.Default.ShoppingCart,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                "Book Now",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
         // Chat
         OutlinedButton(
             onClick = onChatClick,

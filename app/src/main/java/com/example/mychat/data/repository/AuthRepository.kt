@@ -186,13 +186,16 @@ class AuthRepository {
             val userDoc = db.collection("users").document(uid).get().await()
             if (userDoc.exists()) {
                 val data = userDoc.data
+                // Default approved to true for backward compatibility with existing users
+                // who may not have the approved field set in Firestore
+                val approved = (data?.get("approved") as? Boolean) ?: true
                 User(
                     id = uid,
                     email = email ?: "",
                     displayName = displayName ?: email ?: "Anonymous",
                     isOnline = true,
                     role = data?.get("role") as? String ?: "user",
-                    approved = data?.get("approved") as? Boolean ?: false,
+                    approved = approved,
                     phone = data?.get("phone") as? String ?: data?.get("contactNumber") as? String ?: "",
                     avatarUrl = data?.get("avatarUrl") as? String
                 )

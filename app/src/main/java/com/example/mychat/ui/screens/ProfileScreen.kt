@@ -28,7 +28,6 @@ fun ProfileScreen(
     currentUser: User,
     authViewModel: AuthViewModel,
     onBack: () -> Unit,
-    onBookingsNavigate: () -> Unit,
     onWishlistNavigate: () -> Unit
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -53,7 +52,6 @@ fun ProfileScreen(
             isEditing = false
         },
         onBack = onBack,
-        onBookingsNavigate = onBookingsNavigate,
         onWishlistNavigate = onWishlistNavigate
     )
 }
@@ -71,7 +69,6 @@ fun ProfileScreenContent(
     onSave: () -> Unit,
     onCancel: () -> Unit,
     onBack: () -> Unit,
-    onBookingsNavigate: () -> Unit,
     onWishlistNavigate: () -> Unit
 ) {
     Scaffold(
@@ -189,12 +186,7 @@ fun ProfileScreenContent(
                                 title = "My Account",
                                 isActive = true
                             )
-                            ProfileNavItem(
-                                icon = Icons.Default.DateRange,
-                                title = "My Bookings",
-                                onClick = onBookingsNavigate
-                            )
-                            ProfileNavItem(
+                        ProfileNavItem(
                                 icon = Icons.Default.ShoppingCart,
                                 title = "My Holiday Cart",
                                 onClick = onWishlistNavigate

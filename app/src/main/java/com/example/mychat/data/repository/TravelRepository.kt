@@ -22,8 +22,8 @@ class TravelRepository(private val authRepository: AuthRepository) {
         android.util.Log.d("TravelRepository", "getTravelListings: Auth state changed - Current user = $currentUser")
         android.util.Log.d("TravelRepository", "getTravelListings: User role = ${currentUser?.role}, approved = ${currentUser?.approved}")
 
-        if (currentUser?.role == "user") {
-            // User has access, proceed with Firestore listener
+        if (currentUser != null) {
+            // Any authenticated user can view listings (users, agencies, admins)
             android.util.Log.d("TravelRepository", "User has access, querying approved listings")
             callbackFlow {
                         val listener = db.collection("listings")
@@ -81,21 +81,11 @@ class TravelRepository(private val authRepository: AuthRepository) {
                                             }
 
                                             // Create the listing with the fetched agency data
-                                            val listing = TravelListing(
+                                            val listing = createTravelListing(
                                                 id = document.id,
-                                                title = data["title"] as? String ?: "",
-                                                description = data["description"] as? String ?: "",
-                                                price = (data["price"] as? Number)?.toDouble() ?: 0.0,
-                                                duration = (data["duration"] as? Number)?.toInt() ?: 1,
-                                                destination = data["destination"] as? String ?: "",
-                                                type = data["type"] as? String ?: "adventure",
-                                                photos = (data["photos"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                                                rating = (data["rating"] as? Number)?.toDouble() ?: 0.0,
-                                                reviewsCount = (data["reviewsCount"] as? Number)?.toInt() ?: 0,
-                                                agencyId = agencyId,
+                                                data = data,
                                                 agencyName = agencyName,
-                                                agencyData = agencyData,
-                                                approved = data["approved"] as? Boolean ?: false
+                                                agencyData = agencyData
                                             )
 
                                             listings.add(listing)
@@ -111,21 +101,11 @@ class TravelRepository(private val authRepository: AuthRepository) {
                                             android.util.Log.e("TravelRepository", "Error fetching agency data for $agencyId", exception)
 
                                             // Create listing with default agency name
-                                            val listing = TravelListing(
+                                            val listing = createTravelListing(
                                                 id = document.id,
-                                                title = data["title"] as? String ?: "",
-                                                description = data["description"] as? String ?: "",
-                                                price = (data["price"] as? Number)?.toDouble() ?: 0.0,
-                                                duration = (data["duration"] as? Number)?.toInt() ?: 1,
-                                                destination = data["destination"] as? String ?: "",
-                                                type = data["type"] as? String ?: "adventure",
-                                                photos = (data["photos"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                                                rating = (data["rating"] as? Number)?.toDouble() ?: 0.0,
-                                                reviewsCount = (data["reviewsCount"] as? Number)?.toInt() ?: 0,
-                                                agencyId = agencyId,
+                                                data = data,
                                                 agencyName = agencyName,
-                                                agencyData = agencyData,
-                                                approved = data["approved"] as? Boolean ?: false
+                                                agencyData = agencyData
                                             )
 
                                             listings.add(listing)
@@ -139,21 +119,11 @@ class TravelRepository(private val authRepository: AuthRepository) {
                                         }
                                 } else {
                                     // No agency ID, create listing with default values
-                                    val listing = TravelListing(
-                                        id = document.id,
-                                        title = data["title"] as? String ?: "",
-                                        description = data["description"] as? String ?: "",
-                                        price = (data["price"] as? Number)?.toDouble() ?: 0.0,
-                                        duration = (data["duration"] as? Number)?.toInt() ?: 1,
-                                        destination = data["destination"] as? String ?: "",
-                                        type = data["type"] as? String ?: "adventure",
-                                                photos = (data["photos"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
-                                                rating = (data["rating"] as? Number)?.toDouble() ?: 0.0,
-                                                reviewsCount = (data["reviewsCount"] as? Number)?.toInt() ?: 0,
-                                                agencyId = agencyId,
+                                            val listing = createTravelListing(
+                                                id = document.id,
+                                                data = data,
                                                 agencyName = agencyName,
-                                                agencyData = agencyData,
-                                                approved = data["approved"] as? Boolean ?: false
+                                                agencyData = agencyData
                                             )
 
                                             listings.add(listing)
@@ -190,8 +160,8 @@ class TravelRepository(private val authRepository: AuthRepository) {
         // Get current user synchronously to check permissions
         val currentUser = runBlocking { authRepository.currentUser.first() }
 
-        if (currentUser?.role == "user") {
-            // User has access, proceed with Firestore listener
+        if (currentUser != null) {
+            // Any authenticated user can view listing details
             val listener = db.collection("listings").document(id)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null) {

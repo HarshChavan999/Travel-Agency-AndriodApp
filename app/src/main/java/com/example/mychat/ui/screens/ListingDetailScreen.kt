@@ -367,17 +367,6 @@ fun BasicListingDetailScreen(
 
                 // Action Buttons
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Button(
-                        onClick = onBookNow,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentPadding = PaddingValues(16.dp)
-                    ) {
-                        Text(
-                            "Book Now",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                    }
-
                     OutlinedButton(
                         onClick = onChatClick,
                         modifier = Modifier.fillMaxWidth(),

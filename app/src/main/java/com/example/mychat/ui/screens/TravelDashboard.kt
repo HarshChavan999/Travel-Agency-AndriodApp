@@ -50,6 +50,232 @@ data class Destination(
     val travelListing: TravelListing? = null
 )
 
+data class CategoryConfig(
+    val id: String,
+    val title: String,
+    val subcategories: List<String>,
+    val linkText: String
+)
+
+data class CategoryChipItem(
+    val id: String,
+    val label: String,
+    val type: String, // "categories" or "all"
+    val filterId: String? = null,
+    val filterSub: String? = null,
+    val filterTitle: String? = null
+)
+
+data class CategoryFilter(
+    val categoryId: String,
+    val subcategory: String? = null,
+    val title: String
+)
+
+val categoriesConfig = listOf(
+    CategoryConfig(
+        id = "tourCategory",
+        title = "Tour by Category",
+        subcategories = listOf("Family Tour", "Group Tour", "Fix Departure Tour", "Honeymoon Tour"),
+        linkText = "See more"
+    ),
+    CategoryConfig(
+        id = "domestic",
+        title = "Domestic Packages",
+        subcategories = listOf("Kashmir", "Himachal", "South", "Rajasthan"),
+        linkText = "See more"
+    ),
+    CategoryConfig(
+        id = "international",
+        title = "International Packages",
+        subcategories = listOf("Dubai", "Europe", "Bali", "Turkey"),
+        linkText = "Shop now"
+    ),
+    CategoryConfig(
+        id = "trending",
+        title = "Trending Destinations",
+        subcategories = listOf("Baku", "Singapore", "Leh Ladakh", "Manali"),
+        linkText = "See more"
+    ),
+    CategoryConfig(
+        id = "seasons",
+        title = "Seasonal Escapes",
+        subcategories = listOf("Summer Retreats", "Monsoon Magic", "Winter Wonderland", "Spring Getaways"),
+        linkText = "See more"
+    ),
+    CategoryConfig(
+        id = "events",
+        title = "Festive & Event Specials",
+        subcategories = listOf("New Year & Christmas", "Diwali Specials", "Summer Vacations", "Long Weekend Escapes"),
+        linkText = "See more"
+    ),
+    CategoryConfig(
+        id = "experiences",
+        title = "Experience Travel",
+        subcategories = listOf("Trekking", "Snow Enjoyment", "Adventure", "Water Sports"),
+        linkText = "Explore all"
+    )
+)
+
+val subcategoryDescriptions = mapOf(
+    "Family Tour" to "Create Memories with family",
+    "Group Tour" to "Bring your group together to travel!",
+    "Fix Departure Tour" to "Join groups, make friends!",
+    "Honeymoon Tour" to "Make honeymoon memories!",
+    "Kashmir" to "Paradise on Earth",
+    "Himachal" to "Queen of Hills",
+    "South" to "Backwaters & Temples",
+    "Rajasthan" to "Land of Kings",
+    "Dubai" to "Modern Oasis",
+    "Europe" to "Classic Romance",
+    "Bali" to "Tropical Heaven",
+    "Turkey" to "East meets West",
+    "Baku" to "Flame Towers & Caspian Sea",
+    "Singapore" to "Lion City Adventure",
+    "Leh Ladakh" to "High Mountain Passes",
+    "Manali" to "Snowy Peak Escapes",
+    "50% Off" to "Super Saver Deals",
+    "10% Off" to "Special Season Discount",
+    "Packages under 10K" to "Budget friendly tours",
+    "Flash Deals" to "Limited time offers",
+    "Trekking" to "Mountain Trails",
+    "Snow Enjoyment" to "Winter Wonderland",
+    "Adventure" to "Thrill seeker choice",
+    "Water Sports" to "Beaches & Oceans",
+    "Summer Retreats" to "Hill stations & cool escapes",
+    "Monsoon Magic" to "Lush green scenic tours",
+    "Winter Wonderland" to "Snow peaks & desert camps",
+    "Spring Getaways" to "Pleasant sightseeing trips",
+    "New Year & Christmas" to "Beach sides & year-end parties",
+    "Diwali Specials" to "Heritage tours & palace stays",
+    "Summer Vacations" to "Family beach & theme parks",
+    "Long Weekend Escapes" to "Quick 2-3 day getaways"
+)
+
+fun getSubcategoryImage(
+    categoryId: String,
+    subcategory: String,
+    listings: List<TravelListing>
+): String {
+    val matched = listings.filter { listing ->
+        if (!listing.approved) return@filter false
+        when (categoryId) {
+            "tourCategory" -> {
+                val cats = listing.tourCategories
+                when (subcategory) {
+                    "Family Tour" -> cats.any { it.equals("Family", ignoreCase = true) }
+                    "Group Tour" -> cats.any { it.equals("Friends", ignoreCase = true) || it.equals("Group", ignoreCase = true) }
+                    "Fix Departure Tour" -> cats.any { it.equals("Fix Departure", ignoreCase = true) }
+                    "Honeymoon Tour" -> cats.any { it.equals("Honeymoon", ignoreCase = true) }
+                    else -> false
+                }
+            }
+            "domestic" -> {
+                if (listing.packageType != "domestic") return@filter false
+                val state = listing.stateName?.lowercase() ?: ""
+                when (subcategory) {
+                    "Kashmir" -> state.contains("kashmir") || state.contains("jammu")
+                    "Himachal" -> state.contains("himachal")
+                    "South" -> state.contains("kerala") || state.contains("karnataka") || state.contains("tamil") || state.contains("south") || state.contains("goa") || state.contains("andhra")
+                    "Rajasthan" -> state.contains("rajasthan")
+                    else -> false
+                }
+            }
+            "international" -> {
+                if (listing.packageType != "international") return@filter false
+                val country = listing.countryName?.lowercase() ?: ""
+                when (subcategory) {
+                    "Dubai" -> country.contains("dubai") || country.contains("emirates") || country.contains("uae")
+                    "Europe" -> country.contains("europe") || country.contains("switzerland") || country.contains("france") || country.contains("italy") || country.contains("germany") || country.contains("united kingdom") || country.contains("london")
+                    "Bali" -> country.contains("bali") || country.contains("indonesia")
+                    "Turkey" -> country.contains("turkey")
+                    else -> false
+                }
+            }
+            "trending" -> {
+                val dest = ((listing.countryName ?: "") + " " + (listing.stateName ?: "") + " " + listing.title).lowercase()
+                when (subcategory) {
+                    "Baku" -> dest.contains("baku") || dest.contains("azerbaijan")
+                    "Singapore" -> dest.contains("singapore")
+                    "Leh Ladakh" -> dest.contains("ladakh") || dest.contains("leh")
+                    "Manali" -> dest.contains("manali")
+                    else -> false
+                }
+            }
+            "seasons" -> {
+                val desc = listing.description.lowercase()
+                when (subcategory) {
+                    "Summer Retreats" -> desc.contains("summer") || desc.contains("cool")
+                    "Monsoon Magic" -> desc.contains("monsoon") || desc.contains("rain")
+                    "Winter Wonderland" -> desc.contains("winter") || desc.contains("snow")
+                    "Spring Getaways" -> desc.contains("spring") || desc.contains("flower")
+                    else -> false
+                }
+            }
+            "events" -> {
+                val desc = listing.description.lowercase()
+                val title = listing.title.lowercase()
+                when (subcategory) {
+                    "New Year & Christmas" -> desc.contains("new year") || desc.contains("christmas") || title.contains("new year") || title.contains("christmas")
+                    "Diwali Specials" -> desc.contains("diwali") || title.contains("diwali")
+                    "Summer Vacations" -> desc.contains("summer") || title.contains("summer")
+                    "Long Weekend Escapes" -> desc.contains("weekend") || title.contains("weekend")
+                    else -> false
+                }
+            }
+            "experiences" -> {
+                val desc = listing.description.lowercase()
+                val type = listing.type.lowercase()
+                when (subcategory) {
+                    "Trekking" -> type.contains("trekking") || desc.contains("trek")
+                    "Snow Enjoyment" -> type.contains("snow") || desc.contains("snow") || desc.contains("ski")
+                    "Adventure" -> type.contains("adventure") || desc.contains("adventure")
+                    "Water Sports" -> type.contains("water") || desc.contains("beach") || desc.contains("rafting") || desc.contains("scuba")
+                    else -> false
+                }
+            }
+            else -> false
+        }
+    }
+
+    val matchedImg = matched.firstOrNull()?.let { listing ->
+        listing.placesCovered.firstOrNull()?.imageUrls?.firstOrNull() ?: listing.photos.firstOrNull()
+    }
+    if (matchedImg != null) return matchedImg
+
+    return when (subcategory) {
+        "Family Tour" -> "https://images.unsplash.com/photo-1543039625-14cbd3802e7d?auto=format&fit=crop&q=80&w=400"
+        "Group Tour" -> "https://images.unsplash.com/photo-1539635278303-d4002c07eae3?auto=format&fit=crop&q=80&w=400"
+        "Fix Departure Tour" -> "https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&q=80&w=400"
+        "Honeymoon Tour" -> "https://images.unsplash.com/photo-1510312305653-8ed496efae75?auto=format&fit=crop&q=80&w=400"
+        "Kashmir" -> "https://images.unsplash.com/photo-1566228015668-4c45dbc4e2f5?auto=format&fit=crop&q=80&w=400"
+        "Himachal" -> "https://images.unsplash.com/photo-1605649487212-47bdab064df7?auto=format&fit=crop&q=80&w=400"
+        "South" -> "https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?auto=format&fit=crop&q=80&w=400"
+        "Rajasthan" -> "https://images.unsplash.com/photo-1599661046289-e31897846e41?auto=format&fit=crop&q=80&w=400"
+        "Dubai" -> "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&q=80&w=400"
+        "Europe" -> "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&q=80&w=400"
+        "Bali" -> "https://images.unsplash.com/photo-1537996194471-e657df975ab4?auto=format&fit=crop&q=80&w=400"
+        "Turkey" -> "https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?auto=format&fit=crop&q=80&w=400"
+        "Baku" -> "https://images.unsplash.com/photo-1618083707368-b3823daa2726?auto=format&fit=crop&q=80&w=400"
+        "Singapore" -> "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&q=80&w=400"
+        "Leh Ladakh" -> "https://images.unsplash.com/photo-1621415263409-2259bdd2ac0d?auto=format&fit=crop&q=80&w=400"
+        "Manali" -> "https://images.unsplash.com/photo-1544735716-392fe2489ffa?auto=format&fit=crop&q=80&w=400"
+        "Trekking" -> "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=400"
+        "Snow Enjoyment" -> "https://images.unsplash.com/photo-1482862549707-f63cb32c5fd9?auto=format&fit=crop&q=80&w=400"
+        "Adventure" -> "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400"
+        "Water Sports" -> "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=400"
+        "Summer Retreats" -> "https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&q=80&w=400"
+        "Monsoon Magic" -> "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&q=80&w=400"
+        "Winter Wonderland" -> "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?auto=format&fit=crop&q=80&w=400"
+        "Spring Getaways" -> "https://images.unsplash.com/photo-1492496913980-501348b61469?auto=format&fit=crop&q=80&w=400"
+        "New Year & Christmas" -> "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=400"
+        "Diwali Specials" -> "https://images.unsplash.com/photo-1582650625119-3a31f8fa2699?auto=format&fit=crop&q=80&w=400"
+        "Summer Vacations" -> "https://images.unsplash.com/photo-1506929562872-bb421503ef21?auto=format&fit=crop&q=80&w=400"
+        "Long Weekend Escapes" -> "https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&q=80&w=400"
+        else -> "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?auto=format&fit=crop&q=80&w=400"
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TravelDashboard(
@@ -61,13 +287,15 @@ fun TravelDashboard(
     onWishlistClick: (TravelListing) -> Unit,
     onWishlistNavigate: () -> Unit,
     onBookingsNavigate: () -> Unit = {},
+    onChatListNavigate: () -> Unit = {},
     onProfileNavigate: () -> Unit = {},
     onSignOut: () -> Unit,
     wishlistViewModel: WishlistViewModel
 ) {
     var selectedTab by remember { mutableStateOf(0) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedCategory by remember { mutableStateOf("All") }
+    var dashboardViewMode by remember { mutableStateOf("categories") } // "categories" or "all"
+    var selectedCategoryFilter by remember { mutableStateOf<CategoryFilter?>(null) }
     val comparisonList = remember { mutableStateListOf<TravelListing>() }
     var showComparison by remember { mutableStateOf(false) }
     var pincode by remember { mutableStateOf("Pincode 400605") }
@@ -90,20 +318,156 @@ fun TravelDashboard(
         }
     }
 
-    val filteredDestinations = remember(destinations, searchQuery) {
-        if (searchQuery.isBlank()) destinations
-        else destinations.filter { dest ->
-            val query = searchQuery.lowercase()
-            dest.name.lowercase().contains(query) ||
-            dest.country.lowercase().contains(query) ||
-            dest.description.lowercase().contains(query) ||
-            dest.travelListing?.let { listing ->
-                listing.stateName?.lowercase()?.contains(query) == true ||
-                listing.countryName?.lowercase()?.contains(query) == true ||
-                listing.packageType?.lowercase()?.contains(query) == true ||
-                listing.type?.lowercase()?.contains(query) == true
-            } == true
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotBlank() && dashboardViewMode == "categories") {
+            dashboardViewMode = "all"
         }
+    }
+
+    val filteredDestinations = remember(destinations, searchQuery, selectedCategoryFilter, dashboardViewMode) {
+        val baseList = if (searchQuery.isBlank()) {
+            val filter = selectedCategoryFilter
+            if (filter != null) {
+                destinations.filter { dest ->
+                    val listing = dest.travelListing ?: return@filter false
+                    if (!listing.approved) return@filter false
+                    
+                    val category = filter.categoryId
+                    val subcategory = filter.subcategory
+                    
+                    when (category) {
+                        "tourCategory" -> {
+                            val cats = listing.tourCategories
+                            if (subcategory != null) {
+                                when (subcategory) {
+                                    "Family Tour" -> cats.any { it.equals("Family", ignoreCase = true) }
+                                    "Group Tour" -> cats.any { it.equals("Friends", ignoreCase = true) || it.equals("Group", ignoreCase = true) }
+                                    "Fix Departure Tour" -> cats.any { it.equals("Fix Departure", ignoreCase = true) }
+                                    "Honeymoon Tour" -> cats.any { it.equals("Honeymoon", ignoreCase = true) }
+                                    else -> false
+                                }
+                            } else {
+                                cats.isNotEmpty()
+                            }
+                        }
+                        "domestic" -> {
+                            if (listing.packageType != "domestic") return@filter false
+                            if (subcategory != null) {
+                                val state = listing.stateName?.lowercase() ?: ""
+                                when (subcategory) {
+                                    "Kashmir" -> state.contains("kashmir") || state.contains("jammu")
+                                    "Himachal" -> state.contains("himachal")
+                                    "South" -> state.contains("kerala") || state.contains("karnataka") || state.contains("tamil") || state.contains("south") || state.contains("goa") || state.contains("andhra")
+                                    "Rajasthan" -> state.contains("rajasthan")
+                                    else -> false
+                                }
+                            } else true
+                        }
+                        "international" -> {
+                            if (listing.packageType != "international") return@filter false
+                            if (subcategory != null) {
+                                val country = listing.countryName?.lowercase() ?: ""
+                                when (subcategory) {
+                                    "Dubai" -> country.contains("dubai") || country.contains("emirates") || country.contains("uae")
+                                    "Europe" -> country.contains("europe") || country.contains("switzerland") || country.contains("france") || country.contains("italy") || country.contains("germany") || country.contains("united kingdom") || country.contains("london")
+                                    "Bali" -> country.contains("bali") || country.contains("indonesia")
+                                    "Turkey" -> country.contains("turkey")
+                                    else -> false
+                                }
+                            } else true
+                        }
+                        "trending" -> {
+                            val destName = ((listing.countryName ?: "") + " " + (listing.stateName ?: "") + " " + listing.title).lowercase()
+                            if (subcategory != null) {
+                                when (subcategory) {
+                                    "Baku" -> destName.contains("baku") || destName.contains("azerbaijan")
+                                    "Singapore" -> destName.contains("singapore")
+                                    "Leh Ladakh" -> destName.contains("ladakh") || destName.contains("leh")
+                                    "Manali" -> destName.contains("manali")
+                                    else -> false
+                                }
+                            } else {
+                                listing.rating >= 4.5 || listing.reviewsCount > 50
+                            }
+                        }
+                        "seasons" -> {
+                            val desc = listing.description.lowercase()
+                            if (subcategory != null) {
+                                when (subcategory) {
+                                    "Summer Retreats" -> desc.contains("summer") || desc.contains("cool")
+                                    "Monsoon Magic" -> desc.contains("monsoon") || desc.contains("rain")
+                                    "Winter Wonderland" -> desc.contains("winter") || desc.contains("snow")
+                                    "Spring Getaways" -> desc.contains("spring") || desc.contains("flower")
+                                    else -> false
+                                }
+                            } else true
+                        }
+                        "events" -> {
+                            val desc = listing.description.lowercase()
+                            val title = listing.title.lowercase()
+                            if (subcategory != null) {
+                                when (subcategory) {
+                                    "New Year & Christmas" -> desc.contains("new year") || desc.contains("christmas") || title.contains("new year") || title.contains("christmas")
+                                    "Diwali Specials" -> desc.contains("diwali") || title.contains("diwali")
+                                    "Summer Vacations" -> desc.contains("summer") || title.contains("summer")
+                                    "Long Weekend Escapes" -> desc.contains("weekend") || title.contains("weekend")
+                                    else -> false
+                                }
+                            } else true
+                        }
+                        "experiences" -> {
+                            val desc = listing.description.lowercase()
+                            val type = listing.type.lowercase()
+                            if (subcategory != null) {
+                                when (subcategory) {
+                                    "Trekking" -> type.contains("trekking") || desc.contains("trek")
+                                    "Snow Enjoyment" -> type.contains("snow") || desc.contains("snow") || desc.contains("ski")
+                                    "Adventure" -> type.contains("adventure") || desc.contains("adventure")
+                                    "Water Sports" -> type.contains("water") || desc.contains("beach") || desc.contains("rafting") || desc.contains("scuba")
+                                    else -> false
+                                }
+                            } else true
+                        }
+                        else -> true
+                    }
+                }
+            } else {
+                destinations
+            }
+        } else {
+            destinations.filter { dest ->
+                val query = searchQuery.lowercase()
+                val basicMatch = dest.name.lowercase().contains(query) ||
+                        dest.country.lowercase().contains(query) ||
+                        dest.description.lowercase().contains(query)
+
+                val listingMatch = dest.travelListing?.let { listing ->
+                    listing.stateName?.lowercase()?.contains(query) == true ||
+                    listing.countryName?.lowercase()?.contains(query) == true ||
+                    listing.packageType?.lowercase()?.contains(query) == true ||
+                    listing.type.lowercase().contains(query) ||
+                    listing.packageCode.lowercase().contains(query) ||
+                    listing.hotelType?.lowercase()?.contains(query) == true ||
+                    listing.mealPlan?.lowercase()?.contains(query) == true ||
+                    listing.inclusions.lowercase().contains(query) ||
+                    listing.exclusions.lowercase().contains(query) ||
+                    listing.placesCovered.any { it.name.lowercase().contains(query) } ||
+                    listing.itinerary.any { day ->
+                        day.placeName.lowercase().contains(query) ||
+                        day.description.lowercase().contains(query) ||
+                        day.accommodation.lowercase().contains(query) ||
+                        day.activities.any { it.lowercase().contains(query) }
+                    } ||
+                    listing.faqs.any { faq ->
+                        faq.question.lowercase().contains(query) ||
+                        faq.answer.lowercase().contains(query)
+                    }
+                } == true
+
+                basicMatch || listingMatch
+            }
+        }
+        baseList
     }
 
     TravelAgencyTheme {
@@ -120,6 +484,7 @@ fun TravelDashboard(
                 BottomNavigationBar(
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it },
+                    onChatListClick = onChatListNavigate,
                     onWishlistClick = onWishlistNavigate,
                     onBookingsClick = onBookingsNavigate,
                     onProfileClick = onProfileNavigate
@@ -133,8 +498,12 @@ fun TravelDashboard(
                     .padding(paddingValues)
             ) {
                 CategoryChips(
-                    selectedCategory = selectedCategory,
-                    onCategorySelected = { selectedCategory = it }
+                    dashboardViewMode = dashboardViewMode,
+                    selectedCategoryFilter = selectedCategoryFilter,
+                    onChipSelected = { viewMode, filter ->
+                        dashboardViewMode = viewMode
+                        selectedCategoryFilter = filter
+                    }
                 )
 
                 if (comparisonList.isNotEmpty() && !showComparison) {
@@ -149,72 +518,178 @@ fun TravelDashboard(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp)
                 ) {
-                    item { HeroBanner() }
-
-                    item {
-                        Column(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
-                            Text(
-                                text = "Popular Destinations",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onBackground
-                            )
-                            Text(
-                                text = "Explore amazing places",
-                                fontSize = 14.sp,
-                                color = MaterialTheme.colorScheme.secondary
-                            )
-                        }
-                    }
-
-                    if (isLoading) {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) { CircularProgressIndicator() }
-                        }
-                    } else if (filteredDestinations.isEmpty()) {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().height(200.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = if (searchQuery.isNotBlank()) "" else "",
-                                        style = MaterialTheme.typography.displayLarge
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = if (searchQuery.isNotBlank()) "No results found for \"$searchQuery\""
-                                               else "No travel packages available yet.",
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                }
+                    if (dashboardViewMode == "categories" && selectedCategoryFilter == null && searchQuery.isBlank()) {
+                        item { HeroBanner() }
+                        
+                        categoriesConfig.forEach { config ->
+                            item {
+                                CategoryCard(
+                                    config = config,
+                                    listings = listings,
+                                    onSubcategoryClick = { subcategory ->
+                                        selectedCategoryFilter = CategoryFilter(config.id, subcategory, "${config.title} - $subcategory")
+                                        dashboardViewMode = "all"
+                                    },
+                                    onSeeMoreClick = {
+                                        selectedCategoryFilter = CategoryFilter(config.id, null, config.title)
+                                        dashboardViewMode = "all"
+                                    }
+                                )
                             }
                         }
                     } else {
-                        items(filteredDestinations) { destination ->
-                            ModernDestinationCard(
-                                destination = destination,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                                onListingClick = { destination.travelListing?.let { onListingClick(it) } },
-                                onChatClick = { destination.travelListing?.let { onChatClick(it) } },
-                                onWishlistToggle = { destination.travelListing?.let { onWishlistClick(it) } },
-                                onCompareToggle = { destination.travelListing?.let { listing ->
-                                    if (comparisonList.contains(listing)) {
-                                        comparisonList.remove(listing)
-                                    } else if (comparisonList.size < 3) {
-                                        comparisonList.add(listing)
+                        if (selectedCategoryFilter != null) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)),
+                                    border = BorderStroke(1.dp, Color(0xFFFFEDD5)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "FILTERED CATEGORY",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFFC2410C)
+                                            )
+                                            Text(
+                                                text = selectedCategoryFilter!!.title + if (selectedCategoryFilter!!.subcategory != null) " • ${selectedCategoryFilter!!.subcategory}" else "",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF1F2937)
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = { 
+                                                selectedCategoryFilter = null
+                                                dashboardViewMode = "categories"
+                                            },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFC2410C))
+                                        ) {
+                                            Text("Clear Filter", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
                                     }
-                                } },
-                                isWishlisted = destination.travelListing?.let { wishlistViewModel.isListingInWishlist(it.id) } ?: false,
-                                isInComparison = destination.travelListing?.let { comparisonList.contains(it) } ?: false,
-                                canCompareMore = comparisonList.size < 3
-                            )
+                                }
+                            }
+                        }
+
+                        if (searchQuery.isNotBlank()) {
+                            item {
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEFF6FF)),
+                                    border = BorderStroke(1.dp, Color(0xFFDBEAFE)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = "SEARCH RESULTS FOR",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF1D4ED8)
+                                            )
+                                            Text(
+                                                text = "\"$searchQuery\"",
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF1F2937)
+                                            )
+                                        }
+                                        TextButton(
+                                            onClick = { searchQuery = "" },
+                                            colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFF1D4ED8))
+                                        ) {
+                                            Text("Clear Search", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            ) {
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "Search Results" else selectedCategoryFilter?.title ?: "All Packages",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "Showing results for \"$searchQuery\"" else "Explore amazing places",
+                                    fontSize = 14.sp,
+                                    color = MaterialTheme.colorScheme.secondary
+                                )
+                            }
+                        }
+
+                        if (isLoading) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) { CircularProgressIndicator() }
+                            }
+                        } else if (filteredDestinations.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().height(200.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "",
+                                            style = MaterialTheme.typography.displayLarge
+                                        )
+                                        Spacer(modifier = Modifier.height(16.dp))
+                                        Text(
+                                            text = if (searchQuery.isNotBlank()) "No results found for \"$searchQuery\""
+                                                   else "No travel packages available in this category yet.",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                }
+                            }
+                        } else {
+                            items(filteredDestinations) { destination ->
+                                ModernListingCard(
+                                    listing = destination.travelListing ?: return@items,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                    onListingClick = { destination.travelListing?.let { onListingClick(it) } },
+                                    onChatClick = { destination.travelListing?.let { onChatClick(it) } },
+                                    onWishlistToggle = { destination.travelListing?.let { onWishlistClick(it) } },
+                                    onCompareToggle = { destination.travelListing?.let { listing ->
+                                        if (comparisonList.contains(listing)) {
+                                            comparisonList.remove(listing)
+                                        } else if (comparisonList.size < 3) {
+                                            comparisonList.add(listing)
+                                        }
+                                    } },
+                                    isWishlisted = destination.travelListing?.let { wishlistViewModel.isListingInWishlist(it.id) } ?: false,
+                                    isInComparison = destination.travelListing?.let { comparisonList.contains(it) } ?: false,
+                                    canCompareMore = comparisonList.size < 3
+                                )
+                            }
                         }
                     }
                 }
@@ -417,25 +892,73 @@ fun ComparisonBar(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryChips(selectedCategory: String, onCategorySelected: (String) -> Unit) {
-    val categories = listOf("All", "Beach", "City", "Mountain", "Island", "Adventure")
-    Surface(modifier = Modifier.fillMaxWidth(), color = Color.White, shadowElevation = 1.dp) {
+fun CategoryChips(
+    dashboardViewMode: String,
+    selectedCategoryFilter: CategoryFilter?,
+    onChipSelected: (viewMode: String, filter: CategoryFilter?) -> Unit
+) {
+    val items = listOf(
+        CategoryChipItem("all_categories", "🎛️ Categories", "categories"),
+        CategoryChipItem("all_packages", "🏖️ All Packages", "all"),
+        CategoryChipItem("domestic_tab", "🏔️ Domestic", "all", "domestic", null, "Domestic Packages"),
+        CategoryChipItem("intl_tab", "🌍 International", "all", "international", null, "International Packages"),
+        CategoryChipItem("trending_tab", "🔥 Trending", "all", "trending", null, "Trending Destinations"),
+        CategoryChipItem("experience_tab", "🎒 Adventure", "all", "experiences", "Adventure", "Experience Travel - Adventure"),
+        CategoryChipItem("honeymoon_tab", "🍯 Honeymoon", "all", "tourCategory", "Honeymoon Tour", "Tour by Category - Honeymoon Tour")
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 1.dp
+    ) {
         LazyRow(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(categories) { category ->
+            items(items) { item ->
+                val isCategoriesActive = item.type == "categories" && dashboardViewMode == "categories" && selectedCategoryFilter == null
+                val isAllActive = item.type == "all" && dashboardViewMode == "all" && selectedCategoryFilter == null && item.filterId == null
+                val isFilterActive = item.filterId != null && selectedCategoryFilter != null &&
+                        selectedCategoryFilter.categoryId == item.filterId &&
+                        selectedCategoryFilter.subcategory == item.filterSub
+
+                val isActive = isCategoriesActive || isAllActive || isFilterActive
+
                 FilterChip(
-                    selected = category == selectedCategory,
-                    onClick = { onCategorySelected(category) },
-                    label = { Text(text = category, fontSize = 12.sp, fontWeight = FontWeight.Medium) },
+                    selected = isActive,
+                    onClick = {
+                        if (item.type == "categories") {
+                            onChipSelected("categories", null)
+                        } else {
+                            val filter = if (item.filterId != null) {
+                                CategoryFilter(item.filterId, item.filterSub, item.filterTitle ?: "")
+                            } else null
+                            onChipSelected("all", filter)
+                        }
+                    },
+                    label = { 
+                        Text(
+                            text = item.label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedContainerColor = Color(0xFFF97316),
                         selectedLabelColor = Color.White,
                         containerColor = Color(0xFFF3F4F6),
                         labelColor = Color(0xFF374151)
-                    )
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isActive,
+                        borderColor = if (isActive) Color(0xFFF97316) else Color(0xFFE5E7EB),
+                        borderWidth = 1.dp
+                    ),
+                    shape = RoundedCornerShape(20.dp)
                 )
             }
         }
@@ -443,196 +966,145 @@ fun CategoryChips(selectedCategory: String, onCategorySelected: (String) -> Unit
 }
 
 @Composable
-fun ModernDestinationCard(
-    destination: Destination,
-    modifier: Modifier = Modifier,
-    onListingClick: () -> Unit,
-    onChatClick: () -> Unit,
-    onWishlistToggle: (() -> Unit)? = null,
-    onCompareToggle: (() -> Unit)? = null,
-    isWishlisted: Boolean = false,
-    isInComparison: Boolean = false,
-    canCompareMore: Boolean = true
+fun SubcategoryItem(
+    subcategory: String,
+    imageUrl: String,
+    onClick: () -> Unit
 ) {
-    var isFavorite by remember(isWishlisted) { mutableStateOf(isWishlisted) }
-    var showCompareToast by remember { mutableStateOf(false) }
-    var compareToastMessage by remember { mutableStateOf("") }
-    val scope = rememberCoroutineScope()
-
-    LaunchedEffect(isWishlisted) { isFavorite = isWishlisted }
-
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column {
-            Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                if (destination.imageUrl.isNotEmpty()) {
-                    AsyncImage(
-                        model = CoilImageRequest.Builder(LocalContext.current)
-                            .data(destination.imageUrl)
-                            .crossfade(true)
-                            .size(480, 360)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = destination.name,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                        placeholder = painterResource(R.drawable.ic_launcher_background),
-                        error = painterResource(R.drawable.ic_launcher_background)
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize().background(Color.LightGray), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Image, contentDescription = "No image", modifier = Modifier.size(64.dp).alpha(0.3f))
-                    }
-                }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1.6f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFFF3F4F6))
+        ) {
+            AsyncImage(
+                model = CoilImageRequest.Builder(LocalContext.current)
+                    .data(imageUrl)
+                    .crossfade(true)
+                    .memoryCachePolicy(CachePolicy.ENABLED)
+                    .diskCachePolicy(CachePolicy.ENABLED)
+                    .build(),
+                contentDescription = subcategory,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(R.drawable.ic_launcher_background),
+                error = painterResource(R.drawable.ic_launcher_background)
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = subcategory,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color(0xFF374151),
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
 
-                destination.travelListing?.packageType?.let { packageType ->
-                    Surface(
-                        modifier = Modifier.padding(6.dp).align(Alignment.TopStart),
-                        color = if (packageType == "international") Color(0xFF3B82F6) else Color(0xFF10B981),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = if (packageType == "international") "Intl" else "Dom",
-                                fontSize = 9.sp, color = Color.White, fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                }
+@Composable
+fun CategoryCard(
+    config: CategoryConfig,
+    listings: List<TravelListing>,
+    onSubcategoryClick: (String) -> Unit,
+    onSeeMoreClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = config.title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF1F2937),
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
 
-                Surface(
-                    modifier = Modifier.padding(6.dp).align(Alignment.BottomStart),
-                    color = Color.White.copy(alpha = 0.9f), shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = destination.travelListing?.agencyName?.take(15) ?: "Unknown",
-                        fontSize = 9.sp, fontWeight = FontWeight.Medium, color = Color(0xFF374151),
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                    )
-                }
-
-                Surface(
-                    modifier = Modifier.padding(6.dp).align(Alignment.TopEnd),
-                    color = Color.White.copy(alpha = 0.9f), shape = CircleShape
-                ) {
-                    IconButton(onClick = {
-                        when {
-                            isInComparison -> { compareToastMessage = "Already added!"; showCompareToast = true }
-                            !canCompareMore -> { compareToastMessage = "Max 3 allowed!"; showCompareToast = true }
-                            else -> { compareToastMessage = "Added to compare!"; showCompareToast = true; onCompareToggle?.invoke() }
-                        }
-                        scope.launch { delay(1500); showCompareToast = false }
-                    }, modifier = Modifier.size(28.dp)) {
-                        Icon(
-                            imageVector = if (isInComparison) Icons.Filled.CheckCircle else Icons.Filled.Add,
-                            contentDescription = "Compare",
-                            tint = if (isInComparison) Color(0xFF2563EB) else Color(0xFF6B7280),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                if (showCompareToast) {
-                    Surface(
-                        modifier = Modifier.align(Alignment.TopEnd).padding(top = 40.dp, end = 6.dp),
-                        color = Color(0xFF1F2937), shape = RoundedCornerShape(6.dp)
-                    ) {
-                        Text(text = compareToastMessage, color = Color.White, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
-                    }
-                }
-
-                Surface(
-                    modifier = Modifier.padding(end = 40.dp, top = 6.dp).align(Alignment.TopEnd).size(28.dp),
-                    color = Color.White.copy(alpha = 0.9f), shape = CircleShape
-                ) {
-                    IconButton(onClick = { isFavorite = !isFavorite; onWishlistToggle?.invoke() }, modifier = Modifier.fillMaxSize()) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                            contentDescription = "Wishlist",
-                            tint = if (isFavorite) Color(0xFFEF4444) else Color(0xFF6B7280),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-
-            Column(modifier = Modifier.padding(12.dp)) {
+            val subs = config.subcategories
+            Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(text = destination.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onBackground, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Default.Place, contentDescription = null, tint = Color(0xFF6B7280), modifier = Modifier.size(12.dp))
-                            val location = destination.travelListing?.let { listing -> listing.countryName ?: listing.stateName ?: destination.country } ?: destination.country
-                            Text(text = location, fontSize = 11.sp, color = Color(0xFF6B7280))
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(text = destination.description, fontSize = 12.sp, color = Color(0xFF6B7280), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    destination.travelListing?.let { listing ->
-                        DetailItem(icon = Icons.Default.Star, text = "${listing.rating} (${listing.reviewsCount})", iconTint = Color(0xFFFBBF24))
-                        val itineraryDays = listing.placesCovered?.size ?: listing.duration
-                        val nights = if (itineraryDays > 0) itineraryDays - 1 else 0
-                        DetailItem(icon = Icons.Default.DateRange, text = "${itineraryDays}D / ${nights}N")
-                        if (listing.packageType != null) {
-                            DetailItem(
-                                icon = Icons.Default.Star,
-                                text = listing.packageType.replaceFirstChar { it.uppercase() }.take(5),
-                                iconTint = if (listing.packageType == "international") Color(0xFF3B82F6) else Color(0xFF10B981)
+                    if (subs.isNotEmpty()) {
+                        val sub = subs[0]
+                        Box(modifier = Modifier.weight(1f)) {
+                            SubcategoryItem(
+                                subcategory = sub,
+                                imageUrl = getSubcategoryImage(config.id, sub, listings),
+                                onClick = { onSubcategoryClick(sub) }
                             )
                         }
-                    } ?: run {
-                        DetailItem(icon = Icons.Default.Star, text = "${destination.rating} (${destination.reviews})", iconTint = Color(0xFFFBBF24))
-                        DetailItem(icon = Icons.Default.DateRange, text = destination.duration)
                     }
-                }
-
-                destination.travelListing?.let { listing ->
-                    if (listing.placesCovered != null && listing.placesCovered.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(text = "Places Covered:", fontSize = 9.sp, fontWeight = FontWeight.Medium, color = Color(0xFF9CA3AF))
-                        Spacer(modifier = Modifier.height(3.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.fillMaxWidth()) {
-                            listing.placesCovered.take(3).forEach { place ->
-                                Surface(color = Color(0xFFF3F4F6), shape = RoundedCornerShape(4.dp)) {
-                                    Text(text = place.name.trim(), fontSize = 9.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                                }
-                            }
-                            if (listing.placesCovered.size > 3) {
-                                Surface(color = Color(0xFFF3F4F6), shape = RoundedCornerShape(4.dp)) {
-                                    Text(text = "+${listing.placesCovered.size - 3} more", fontSize = 9.sp, modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp))
-                                }
-                            }
+                    if (subs.size > 1) {
+                        val sub = subs[1]
+                        Box(modifier = Modifier.weight(1f)) {
+                            SubcategoryItem(
+                                subcategory = sub,
+                                imageUrl = getSubcategoryImage(config.id, sub, listings),
+                                onClick = { onSubcategoryClick(sub) }
+                            )
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(10.dp))
-                HorizontalDivider(color = Color(0xFFE5E7EB))
-                Spacer(modifier = Modifier.height(10.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    OutlinedButton(onClick = onListingClick, modifier = Modifier.weight(1f)) {
-                        Text("View", fontSize = 12.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    if (subs.size > 2) {
+                        val sub = subs[2]
+                        Box(modifier = Modifier.weight(1f)) {
+                            SubcategoryItem(
+                                subcategory = sub,
+                                imageUrl = getSubcategoryImage(config.id, sub, listings),
+                                onClick = { onSubcategoryClick(sub) }
+                            )
+                        }
                     }
-                    Button(onClick = onChatClick, modifier = Modifier.weight(1f)) {
-                        Text("Chat", fontSize = 12.sp)
+                    if (subs.size > 3) {
+                        val sub = subs[3]
+                        Box(modifier = Modifier.weight(1f)) {
+                            SubcategoryItem(
+                                subcategory = sub,
+                                imageUrl = getSubcategoryImage(config.id, sub, listings),
+                                onClick = { onSubcategoryClick(sub) }
+                            )
+                        }
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = config.linkText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0284C7),
+                modifier = Modifier
+                    .clickable(onClick = onSeeMoreClick)
+                    .padding(vertical = 4.dp)
+            )
         }
     }
 }
@@ -660,6 +1132,7 @@ fun TravelAgencyTheme(content: @Composable () -> Unit) {
 fun BottomNavigationBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit,
+    onChatListClick: () -> Unit = {},
     onWishlistClick: () -> Unit,
     onBookingsClick: () -> Unit = {},
     onProfileClick: () -> Unit = {}
@@ -667,16 +1140,16 @@ fun BottomNavigationBar(
     val items = listOf(
         BottomNavItem("Home", Icons.Filled.Home, Icons.Outlined.Home),
         BottomNavItem("Explore", Icons.Filled.Search, Icons.Outlined.Search),
+        BottomNavItem("Chat", Icons.Filled.Chat, Icons.Outlined.ChatBubbleOutline),
         BottomNavItem("Wishlist", Icons.Filled.FavoriteBorder, Icons.Outlined.FavoriteBorder),
-        BottomNavItem("Bookings", Icons.Filled.DateRange, Icons.Outlined.DateRange),
         BottomNavItem("Profile", Icons.Filled.Person, Icons.Outlined.Person)
     )
 
     NavigationBar(containerColor = Color.White, tonalElevation = 8.dp) {
         items.forEachIndexed { index, item ->
             val onClickAction = when (index) {
-                2 -> onWishlistClick
-                3 -> onBookingsClick
+                2 -> onChatListClick
+                3 -> onWishlistClick
                 4 -> onProfileClick
                 else -> { { onTabSelected(index) } }
             }

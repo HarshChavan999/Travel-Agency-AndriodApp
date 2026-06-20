@@ -22,8 +22,8 @@ android {
         applicationId = "com.example.mychat"
         minSdk = 24
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0"
+        versionCode = 7
+        versionName = "2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -64,8 +64,8 @@ android {
 
 firebaseAppDistribution {
     appId = "1:387994411670:android:3898d613d93cf83e9f18b7"
-    releaseNotes = "v2.0 - Remote Config System: Maintenance mode, feature flags, force/optional updates, dynamic announcements, configurable UI strings. Control app behavior from Firebase Console without publishing new APK."
-    groups = "testers"
+    releaseNotes = "v2.5 - Push Notifications via FCM: When agencies send messages, users now receive push notifications on their mobile devices. Includes FCM service, notification channel, permission handling (Android 13+), and Cloud Functions for message delivery."
+    groups = "only-me"
     testers = "harshnpc21@gmail.com"
 }
 
@@ -103,6 +103,7 @@ dependencies {
     implementation(libs.firebase.auth.ktx)
     implementation(libs.firebase.firestore.ktx)
     implementation(libs.firebase.config.ktx)
+    implementation(libs.firebase.messaging.ktx)
 
     // Fragment
     implementation(libs.androidx.fragment.ktx)

@@ -20,7 +20,7 @@ APK_PATH="$SCRIPT_DIR/app/build/outputs/apk/release/app-release.apk"
 APP_ID="1:387994411670:android:3898d613d93cf83e9f18b7"
 PROJECT_ID="travel-agent-management-29c27"
 TESTER_GROUPS="testers"
-TESTERS="harshnpc21@gmail.com"
+TESTERS=""
 
 # Colors
 GREEN='\033[0;32m'
@@ -101,28 +101,16 @@ echo "   Groups: $TESTER_GROUPS"
 echo "   Testers: $TESTERS"
 
 # Release notes
-RELEASE_NOTES="v2.0 - Remote Configuration System
-
-New Features:
-• Remote Config integration (Firebase + Firestore)
-• Maintenance mode toggle (control from Firebase Console)
-• Feature flags (enable/disable chat, booking, wishlist, etc.)
-• Force update & optional update prompts
-• Dynamic announcements
-• Configurable UI strings (search placeholder, banner, etc.)
-• Version requirement management
+RELEASE_NOTES="v2.3 - WhatsApp-style Chat UI Overhaul
 
 Changes:
-• Added ConfigManager singleton
-• Added ConfigViewModel
-• Added 4 dialog types (Maintenance, Force Update, Optional Update, Announcement)
-• Added Firebase Remote Config dependency
-• Updated app version to v2.0 (versionCode 2)
-
-Firebase Console Setup Required:
-1. Enable Remote Config with keys from REMOTE_CONFIG_REPORT.md
-2. Create Firestore collection: app_config / global
-3. Update security rules"
+• Bumped versionCode to 5 (versionName 2.3)
+• WhatsApp-inspired chat interface with dark green header & BOMTRA logo
+• WhatsApp-style message bubbles with entrance animations
+• Blue double-tick read receipts (SENT→DELIVERED→READ)
+• WhatsApp-style input bar with emoji, mic & send buttons
+• Date separators, online/offline status, encrypted notice
+• Beige chat background matching WhatsApp wallpaper"
 
 # Upload using Firebase CLI
 echo ""

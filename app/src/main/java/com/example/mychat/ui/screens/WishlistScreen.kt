@@ -227,13 +227,15 @@ fun WishlistScreen(
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         items(wishlistListings) { listing ->
-                            ModernWishlistItemCard(
+                            ModernListingCard(
                                 listing = listing,
+                                modifier = Modifier.padding(vertical = 8.dp),
                                 onListingClick = { onListingClick(listing) },
                                 onChatClick = { onChatClick(listing) },
                                 onWishlistToggle = {
                                     wishlistViewModel.toggleWishlist(listing.id)
-                                }
+                                },
+                                isWishlisted = true
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                         }
@@ -244,178 +246,3 @@ fun WishlistScreen(
     }
 }
 
-@Composable
-fun ModernWishlistItemCard(
-    listing: TravelListing,
-    onListingClick: () -> Unit,
-    onChatClick: () -> Unit,
-    onWishlistToggle: () -> Unit
-) {
-    val isInternational = listing.packageType == "international"
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onListingClick),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
-    ) {
-        Row {
-            // Image Section
-            Box(
-                modifier = Modifier
-                    .width(120.dp)
-                    .height(160.dp)
-            ) {
-                if (listing.photos.isNotEmpty()) {
-                    AsyncImage(
-                        model = CoilImageRequest.Builder(LocalContext.current)
-                            .data(listing.photos.first())
-                            .crossfade(true)
-                            .size(480, 360)
-                            .memoryCachePolicy(CachePolicy.ENABLED)
-                            .diskCachePolicy(CachePolicy.ENABLED)
-                            .build(),
-                        contentDescription = listing.title,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)),
-                        contentScale = ContentScale.Crop,
-                        placeholder = painterResource(R.drawable.ic_launcher_background),
-                        error = painterResource(R.drawable.ic_launcher_background)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color.LightGray)
-                            .clip(RoundedCornerShape(topStart = 12.dp, bottomStart = 12.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Image, contentDescription = "No image", modifier = Modifier.size(32.dp).alpha(0.3f))
-                    }
-                }
-
-                // Package Type Badge
-                if (listing.packageType != null) {
-                    Surface(
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .align(Alignment.TopStart),
-                        color = if (isInternational) Color(0xFF3B82F6) else Color(0xFF10B981),
-                        shape = RoundedCornerShape(4.dp)
-                    ) {
-                        Text(
-                            text = if (isInternational) "Intl" else "Dom",
-                            fontSize = 9.sp,
-                            color = Color.White,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
-                        )
-                    }
-                }
-            }
-
-            // Content Section
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(12.dp)
-            ) {
-                // Title
-                Text(
-                    text = listing.title,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Location
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Place,
-                        contentDescription = null,
-                        tint = Color(0xFF6B7280),
-                        modifier = Modifier.size(12.dp)
-                    )
-                    val location = listing.countryName ?: listing.stateName ?: listing.destination
-                    Text(
-                        text = location,
-                        fontSize = 11.sp,
-                        color = Color(0xFF6B7280)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(6.dp))
-
-                // Duration and Rating
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Duration
-                    val itineraryDays = listing.placesCovered?.size ?: listing.duration
-                    val nights = if (itineraryDays > 0) itineraryDays - 1 else 0
-                    DetailItem(
-                        icon = Icons.Default.DateRange,
-                        text = "${itineraryDays}D / ${nights}N"
-                    )
-
-                    // Rating
-                    if (listing.rating > 0) {
-                        DetailItem(
-                            icon = Icons.Default.Star,
-                            text = "${listing.rating}",
-                            iconTint = Color(0xFFFBBF24)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Actions
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // Remove from wishlist
-                        IconButton(
-                            onClick = onWishlistToggle,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Favorite,
-                                contentDescription = "Remove from wishlist",
-                                tint = Color(0xFFEF4444),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Chat
-                        IconButton(
-                            onClick = onChatClick,
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Email,
-                                contentDescription = "Chat",
-                                tint = Color(0xFF2563EB),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-}

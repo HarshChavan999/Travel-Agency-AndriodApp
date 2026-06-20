@@ -85,13 +85,12 @@ class ChatRepository(
                         }
                     }
 
-                    // Update messages list, avoiding duplicates
-                    val currentMessages = _messages.value.toMutableList()
-                    val existingIds = currentMessages.map { it.id }.toSet()
-                    val newMessages = messages.filter { it.id !in existingIds }
-
-                    currentMessages.addAll(newMessages)
-                    _messages.value = currentMessages.sortedBy { it.timestamp }
+                    // Update messages list, merging updates and new messages
+                    val currentMessagesMap = _messages.value.associateBy { it.id }.toMutableMap()
+                    for (msg in messages) {
+                        currentMessagesMap[msg.id] = msg
+                    }
+                    _messages.value = currentMessagesMap.values.sortedBy { it.timestamp }
                     
                     android.util.Log.d("ChatRepository", "Updated sent messages list: ${_messages.value.size} total messages")
                 }
@@ -108,20 +107,37 @@ class ChatRepository(
 
                 snapshot?.let { querySnapshot ->
                     val messages = mutableListOf<Message>()
+                    val currentChatUserVal = _currentChatUser.value
+                    
                     for (document in querySnapshot.documents) {
-                        val message = documentToMessageFromDataConnect(document)
+                        var message = documentToMessageFromDataConnect(document)
                         if (message != null) {
+                            // If received message is for the current user
+                            if (message.to == userId) {
+                                if (currentChatUserVal != null && message.from == currentChatUserVal.id) {
+                                    // Chat screen is open, mark as read
+                                    if (message.status != MessageStatus.READ) {
+                                        updateMessageStatus(message.id, MessageStatus.READ)
+                                        message = message.copy(status = MessageStatus.READ)
+                                    }
+                                } else {
+                                    // Chat screen is closed, mark as delivered
+                                    if (message.status == MessageStatus.SENT) {
+                                        updateMessageStatus(message.id, MessageStatus.DELIVERED)
+                                        message = message.copy(status = MessageStatus.DELIVERED)
+                                    }
+                                }
+                            }
                             messages.add(message)
                         }
                     }
 
-                    // Update messages list, avoiding duplicates
-                    val currentMessages = _messages.value.toMutableList()
-                    val existingIds = currentMessages.map { it.id }.toSet()
-                    val newMessages = messages.filter { it.id !in existingIds }
-
-                    currentMessages.addAll(newMessages)
-                    _messages.value = currentMessages.sortedBy { it.timestamp }
+                    // Update messages list, merging updates and new messages
+                    val currentMessagesMap = _messages.value.associateBy { it.id }.toMutableMap()
+                    for (msg in messages) {
+                        currentMessagesMap[msg.id] = msg
+                    }
+                    _messages.value = currentMessagesMap.values.sortedBy { it.timestamp }
                     
                     android.util.Log.d("ChatRepository", "Updated received messages list: ${_messages.value.size} total messages")
                 }
@@ -137,7 +153,7 @@ class ChatRepository(
         reverseMessagesListener?.remove()
         chatMessagesListener = null
         reverseMessagesListener = null
-        _messages.value = emptyList()
+        // NOTE: Do NOT clear _messages.value here — we want history to persist
     }
 
     private fun documentToMessage(document: com.google.firebase.firestore.DocumentSnapshot): Message? {
@@ -151,6 +167,7 @@ class ChatRepository(
                 timestamp = (data["timestamp"] as? Long) ?: 0L,
                 status = when (data["status"] as? String) {
                     "delivered" -> MessageStatus.DELIVERED
+                    "read" -> MessageStatus.READ
                     else -> MessageStatus.SENT
                 }
             )
@@ -176,7 +193,7 @@ class ChatRepository(
                 timestamp = (data["timestamp"] as? Long) ?: 0L,
                 status = when (data["status"] as? String) {
                     "delivered" -> MessageStatus.DELIVERED
-                    "read" -> MessageStatus.DELIVERED // Treat read as delivered for mobile app
+                    "read" -> MessageStatus.READ
                     else -> MessageStatus.SENT
                 }
             )
@@ -199,6 +216,13 @@ class ChatRepository(
         cleanupListeners()
     }
 
+    /** Start listeners if they aren't already running (safe to call multiple times) */
+    fun ensureListening() {
+        if (chatMessagesListener == null) {
+            setupMessageListener()
+        }
+    }
+
 
     fun sendMessage(toUserId: String, content: String) {
         val currentUser = firebaseAuth.currentUser ?: return
@@ -214,19 +238,20 @@ class ChatRepository(
 
                 android.util.Log.d("ChatRepository", "Creating message with ID: $messageId")
 
-                // Create message data for Firestore (messages collection format)
+                // Create message data for Firestore (chat_messages collection format)
                 val messageData = hashMapOf(
-                    "sender" to fromUserId,
-                    "receiverId" to toUserId,
-                    "text" to content,
+                    "from_user_id" to fromUserId,
+                    "to_user_id" to toUserId,
+                    "content" to content,
                     "timestamp" to timestamp,
-                    "chatId" to "${fromUserId}_${toUserId}"
+                    "status" to "sent",
+                    "created_at" to com.google.firebase.Timestamp(java.util.Date(timestamp))
                 )
 
                 android.util.Log.d("ChatRepository", "Message data: $messageData")
 
                 // Save to Firestore
-                firestore.collection("messages")
+                firestore.collection("chat_messages")
                     .document(messageId)
                     .set(messageData)
                     .await()
@@ -262,9 +287,13 @@ class ChatRepository(
         android.util.Log.d("ChatRepository", "Setting current chat user: ${user.id} (${user.displayName})")
         _currentChatUser.value = user
         
-        // Clean up existing listener and set up new one for this user
-        cleanupListeners()
-        setupMessageListener()
+        // Mark all messages from this user as read
+        markAllMessagesFromUserAsRead(user.id)
+        
+        // Only re-setup listeners if not already running (don't wipe existing messages)
+        if (chatMessagesListener == null) {
+            setupMessageListener()
+        }
     }
 
     fun clearCurrentChatUser() {
@@ -275,25 +304,83 @@ class ChatRepository(
         _onlineUsers.value = users
     }
 
-    fun markMessageAsDelivered(messageId: String) {
+    fun updateMessageStatus(messageId: String, status: MessageStatus) {
+        val statusString = when (status) {
+            MessageStatus.SENT -> "sent"
+            MessageStatus.DELIVERED -> "delivered"
+            MessageStatus.READ -> "read"
+        }
+        
+        // Update locally
         val currentMessages = _messages.value.toMutableList()
         val index = currentMessages.indexOfFirst { it.id == messageId }
         if (index >= 0) {
-            val updatedMessage = currentMessages[index].copy(status = MessageStatus.DELIVERED)
+            val updatedMessage = currentMessages[index].copy(status = status)
             currentMessages[index] = updatedMessage
             _messages.value = currentMessages
         }
         
-        // Also update in Firestore
+        // Update in Firestore
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 firestore.collection("chat_messages")
                     .document(messageId)
-                    .update("status", "delivered")
+                    .update("status", statusString)
                     .await()
-                Log.d("ChatRepository", "Message $messageId marked as delivered in Firestore")
+                android.util.Log.d("ChatRepository", "Message $messageId status updated to $statusString in Firestore")
             } catch (e: Exception) {
-                Log.e("ChatRepository", "Failed to update message status in Firestore: ${e.message}")
+                // If it fails, it might be a legacy message
+                try {
+                    firestore.collection("messages")
+                        .document(messageId)
+                        .update("status", statusString)
+                        .await()
+                    android.util.Log.d("ChatRepository", "Legacy message $messageId status updated to $statusString in Firestore")
+                } catch (e2: Exception) {
+                    android.util.Log.e("ChatRepository", "Failed to update status to $statusString for message $messageId: ${e2.message}")
+                }
+            }
+        }
+    }
+
+    fun markAllMessagesFromUserAsRead(senderId: String) {
+        val currentUser = firebaseAuth.currentUser ?: return
+        val currentUserId = currentUser.uid
+        
+        val currentMessages = _messages.value
+        val messagesToUpdate = currentMessages.filter { 
+            it.from == senderId && it.to == currentUserId && it.status != MessageStatus.READ 
+        }
+        
+        if (messagesToUpdate.isEmpty()) return
+        
+        android.util.Log.d("ChatRepository", "Marking ${messagesToUpdate.size} messages from $senderId as READ")
+        
+        // Batch update in Firestore
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val batch = firestore.batch()
+                messagesToUpdate.forEach { message ->
+                    val docRef = firestore.collection("chat_messages").document(message.id)
+                    batch.update(docRef, "status", "read")
+                }
+                batch.commit().await()
+                
+                // Update local state
+                val updatedMessagesList = _messages.value.map { message ->
+                    if (message.from == senderId && message.to == currentUserId && message.status != MessageStatus.READ) {
+                        message.copy(status = MessageStatus.READ)
+                    } else {
+                        message
+                    }
+                }
+                _messages.value = updatedMessagesList
+                android.util.Log.d("ChatRepository", "Batch read status update successful")
+            } catch (e: Exception) {
+                // Try individual fallback for legacy messages or mixed collections
+                messagesToUpdate.forEach { message ->
+                    updateMessageStatus(message.id, MessageStatus.READ)
+                }
             }
         }
     }
@@ -319,27 +406,48 @@ class ChatRepository(
         try {
             val currentUserId = getCurrentUserId() ?: return
 
-            // Query chat_messages collection to match web app DataConnect implementation
-            val query = firestore.collection("chat_messages")
-                .whereIn("from_user_id", listOf(currentUserId, otherUserId))
-                .whereIn("to_user_id", listOf(currentUserId, otherUserId))
-                .orderBy("timestamp", Query.Direction.DESCENDING)
-                .limit(limit)
+            val historyMessages = mutableListOf<Message>()
+
+            // Query 1: Messages sent by current user to other user
+            val query1 = firestore.collection("chat_messages")
+                .whereEqualTo("from_user_id", currentUserId)
+                .whereEqualTo("to_user_id", otherUserId)
                 .get()
                 .await()
 
-            val historyMessages = mutableListOf<Message>()
-            for (document in query.documents) {
+            for (document in query1.documents) {
                 val message = documentToMessageFromDataConnect(document)
                 if (message != null) {
                     historyMessages.add(message)
                 }
             }
 
+            // Query 2: Messages sent by other user to current user
+            val query2 = firestore.collection("chat_messages")
+                .whereEqualTo("from_user_id", otherUserId)
+                .whereEqualTo("to_user_id", currentUserId)
+                .get()
+                .await()
+
+            for (document in query2.documents) {
+                val message = documentToMessageFromDataConnect(document)
+                if (message != null) {
+                    historyMessages.add(message)
+                }
+            }
+
+            // Sort and limit in memory to avoid compound index requirements
+            val sortedHistory = historyMessages.sortedBy { it.timestamp }
+            val limitedHistory = if (sortedHistory.size > limit) {
+                sortedHistory.takeLast(limit.toInt())
+            } else {
+                sortedHistory
+            }
+
             // Add to existing messages, avoiding duplicates
             val currentMessages = _messages.value.toMutableList()
             val existingIds = currentMessages.map { it.id }.toSet()
-            val newMessages = historyMessages.filter { it.id !in existingIds }
+            val newMessages = limitedHistory.filter { it.id !in existingIds }
 
             currentMessages.addAll(newMessages)
             _messages.value = currentMessages.sortedBy { it.timestamp }
