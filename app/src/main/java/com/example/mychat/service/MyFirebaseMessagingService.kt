@@ -5,16 +5,46 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.mychat.MainActivity
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val TAG = "MyFirebaseMsgService"
+
+        /**
+         * Called when the Firebase SDK detects a new FCM token
+         * This handles the initial token generation and refresh
+         * Static method so it can be called from anywhere without creating a new instance
+         */
+        fun registerFCMToken() {
+            com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                if (!task.isSuccessful) {
+                    android.util.Log.w(TAG, "Fetching FCM registration token failed", task.exception)
+                    return@addOnCompleteListener
+                }
+
+                // Get new FCM registration token
+                val token = task.result
+                android.util.Log.d(TAG, "FCM token fetched: $token")
+                // Save token using a coroutine
+                CoroutineScope(Dispatchers.IO).launch {
+                    try {
+                        val tokenRepo = com.example.mychat.data.repository.FCMTokenRepository()
+                        tokenRepo.saveToken(token)
+                        android.util.Log.d(TAG, "FCM token saved to Firestore successfully")
+                    } catch (e: Exception) {
+                        android.util.Log.e(TAG, "Error saving FCM token to Firestore: ${e.message}")
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -55,6 +85,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
      *   - senderId: userId of the sender
      *   - senderName: display name of the sender
      *   - message: text content of the message
+     *   - senderAvatarUrl: URL of the sender's avatar/logo (optional, fetched from Firestore if not provided)
      */
     private fun handleDataMessage(data: Map<String, String>) {
         val type = data["type"] ?: return
@@ -65,9 +96,16 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 val senderName = data["senderName"] ?: "Unknown"
                 val messageContent = data["message"] ?: ""
                 val senderId = data["senderId"] ?: ""
+                val senderAvatarUrl = data["senderAvatarUrl"] ?: ""
 
                 if (messageContent.isNotEmpty()) {
-                    showNotification(senderName, messageContent, senderId)
+                    // If avatar URL is provided in data payload, use it directly
+                    if (senderAvatarUrl.isNotEmpty()) {
+                        showNotification(senderName, messageContent, senderId, senderAvatarUrl)
+                    } else {
+                        // Otherwise, try to fetch from Firestore
+                        fetchSenderAvatarAndNotify(senderName, messageContent, senderId)
+                    }
                 }
             }
             "new_booking" -> {
@@ -82,41 +120,39 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     /**
+     * Fetch sender's avatar/logo URL from Firestore and show notification
+     */
+    private fun fetchSenderAvatarAndNotify(senderName: String, messageContent: String, senderId: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val firestore = FirebaseFirestore.getInstance()
+                val doc = firestore.collection("users").document(senderId).get().await()
+                val avatarUrl = if (doc.exists()) {
+                    doc.getString("logoUrl") ?: doc.getString("avatarUrl") ?: ""
+                } else ""
+                showNotification(senderName, messageContent, senderId, avatarUrl)
+            } catch (e: Exception) {
+                android.util.Log.w(TAG, "Error fetching sender avatar: ${e.message}")
+                showNotification(senderName, messageContent, senderId, "")
+            }
+        }
+    }
+
+    /**
      * Show a notification for the received message
      */
-    private fun showNotification(title: String, message: String, senderUserId: String) {
+    private fun showNotification(title: String, message: String, senderUserId: String, senderAvatarUrl: String = "") {
         // Create notification channel first
         NotificationHelper.createNotificationChannel(this)
 
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra("navigate_to_chat", true)
-            putExtra("chat_user_id", senderUserId)
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            System.currentTimeMillis().toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        // Use NotificationHelper which now supports large icons
+        NotificationHelper.showMessageNotification(
+            context = this,
+            senderName = title,
+            messageContent = message,
+            senderUserId = senderUserId,
+            senderAvatarUrl = senderAvatarUrl
         )
-
-        val notification = NotificationCompat.Builder(this, "chat_messages")
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
-            .build()
-
-        try {
-            NotificationManagerCompat.from(this).notify(1001, notification)
-            android.util.Log.d(TAG, "Notification shown: $title - $message")
-        } catch (e: SecurityException) {
-            android.util.Log.w(TAG, "Notification permission not granted: ${e.message}")
-        }
     }
 
     /**
@@ -131,24 +167,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             } catch (e: Exception) {
                 android.util.Log.e(TAG, "Error saving FCM token to Firestore: ${e.message}")
             }
-        }
-    }
-
-    /**
-     * Called when the Firebase SDK detects a new FCM token
-     * This handles the initial token generation and refresh
-     */
-    fun registerFCMToken() {
-        com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (!task.isSuccessful) {
-                android.util.Log.w(TAG, "Fetching FCM registration token failed", task.exception)
-                return@addOnCompleteListener
-            }
-
-            // Get new FCM registration token
-            val token = task.result
-            android.util.Log.d(TAG, "FCM token fetched: $token")
-            saveTokenToFirestore(token)
         }
     }
 }

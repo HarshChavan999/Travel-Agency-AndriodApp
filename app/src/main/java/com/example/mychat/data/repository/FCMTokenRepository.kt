@@ -19,7 +19,7 @@ class FCMTokenRepository(
             // Save token to the user's document in the users collection
             firestore.collection("users")
                 .document(userId)
-                .update("fcmToken", token)
+                .set(mapOf("fcmToken" to token), com.google.firebase.firestore.SetOptions.merge())
                 .await()
 
             // Also save in a separate fcm_tokens collection for easier querying

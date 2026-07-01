@@ -19,13 +19,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import android.content.Context
 import android.net.ConnectivityManager
+import com.example.mychat.data.config.AppConfig
+import com.example.mychat.data.config.ConfigManager
 import com.example.mychat.data.model.Message
 import com.example.mychat.data.model.User
 import com.example.mychat.ui.components.DateSeparator
@@ -33,6 +37,22 @@ import com.example.mychat.ui.components.MessageBubble
 import com.example.mychat.ui.components.MessageInput
 import com.example.mychat.ui.theme.*
 import kotlinx.coroutines.launch
+
+// Ready-made quick replies for users/buyers
+private val BUYER_QUICK_REPLIES = listOf(
+    "Is this package still available?",
+    "Can you provide more details?",
+    "Are dates flexible?",
+    "Do you offer group discounts?"
+)
+
+// Ready-made quick replies for agencies/sellers
+private val SELLER_QUICK_REPLIES = listOf(
+    "Yes, it's available. When are you planning to travel?",
+    "Would you like me to send the complete itinerary?",
+    "How many people are travelling?",
+    "We have a special offer going on, would you like to hear about it?"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -122,17 +142,29 @@ fun ChatScreen(
                         }
 
                         // Logo + Agency name (dynamically from chat user)
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(WhatsAppPrimary.copy(alpha = 0.3f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "✈️",
-                                fontSize = 18.sp
+                        val avatarUrl = chatUser?.avatarUrl ?: ""
+                        if (avatarUrl.isNotEmpty()) {
+                            AsyncImage(
+                                model = avatarUrl,
+                                contentDescription = "Profile",
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
                             )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(WhatsAppPrimary.copy(alpha = 0.3f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "✈️",
+                                    fontSize = 18.sp
+                                )
+                            }
                         }
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
@@ -249,6 +281,7 @@ fun ChatScreen(
                             isFromCurrentUser = isFromCurrentUser,
                             showAvatar = !isFromCurrentUser,
                             chatUserName = chatUser?.displayName ?: "",
+                            chatUserAvatarUrl = chatUser?.avatarUrl ?: "",
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -355,6 +388,16 @@ fun ChatScreen(
             }
 
             // WhatsApp-style input bar
+            // Determine quick replies based on user role, fetched from Firestore app_config/global
+            val configManager = ConfigManager.getInstance()
+            val currentAppConfig by configManager.appConfig.collectAsState()
+            val quickRepliesList = remember(currentUser, currentAppConfig) {
+                if (currentUser?.role == "agency") currentAppConfig.sellerQuickReplies else currentAppConfig.buyerQuickReplies
+            }
+            // Get the set of messages already sent by the current user to filter out used quick replies
+            val sentMessagesTexts = remember(messages, currentUser) {
+                messages.filter { it.from == currentUser?.id }.map { it.content }.toSet()
+            }
             MessageInput(
                 onSendMessage = { content ->
                     onSendMessage(content)
@@ -362,6 +405,8 @@ fun ChatScreen(
                         listState.animateScrollToItem(messages.size)
                     }
                 },
+                quickReplies = quickRepliesList,
+                sentMessages = sentMessagesTexts,
                 modifier = Modifier.fillMaxWidth()
             )
         }

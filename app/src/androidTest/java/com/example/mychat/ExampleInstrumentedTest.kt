@@ -40,7 +40,7 @@ class LoginScreenTest {
 
     @Test
     fun loginScreen_displaysCorrectly() {
-        composeTestRule.onNodeWithText("MyChat").assertExists()
+        composeTestRule.onNodeWithText("TripDm").assertExists()
         composeTestRule.onNodeWithText("Sign in with Google").assertExists()
     }
 
@@ -87,7 +87,7 @@ class AppFlowTest {
     @Test
     fun app_launchesSuccessfully() {
         // Test that the app launches without crashing
-        composeTestRule.onNodeWithText("MyChat").assertExists()
+        composeTestRule.onNodeWithText("TripDm").assertExists()
     }
 
     @Test

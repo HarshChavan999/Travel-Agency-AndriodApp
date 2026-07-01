@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APK_PATH="$SCRIPT_DIR/app/build/outputs/apk/release/app-release.apk"
 APP_ID="1:387994411670:android:3898d613d93cf83e9f18b7"
 PROJECT_ID="travel-agent-management-29c27"
-TESTER_GROUPS="testers"
+TESTER_GROUPS="only-me"
 TESTERS=""
 
 # Colors
@@ -101,16 +101,13 @@ echo "   Groups: $TESTER_GROUPS"
 echo "   Testers: $TESTERS"
 
 # Release notes
-RELEASE_NOTES="v2.3 - WhatsApp-style Chat UI Overhaul
+RELEASE_NOTES="v2.4 - Agency Logo in Chat & Notifications
 
 Changes:
-• Bumped versionCode to 5 (versionName 2.3)
-• WhatsApp-inspired chat interface with dark green header & BOMTRA logo
-• WhatsApp-style message bubbles with entrance animations
-• Blue double-tick read receipts (SENT→DELIVERED→READ)
-• WhatsApp-style input bar with emoji, mic & send buttons
-• Date separators, online/offline status, encrypted notice
-• Beige chat background matching WhatsApp wallpaper"
+• Agency logo now shown in chat list, chat header, and message bubbles
+• Agency logo displayed as large icon in push notifications (like WhatsApp)
+• Logo fetched from agency settings in web app
+• Fallback to initials/emoji when no logo is set"
 
 # Upload using Firebase CLI
 echo ""

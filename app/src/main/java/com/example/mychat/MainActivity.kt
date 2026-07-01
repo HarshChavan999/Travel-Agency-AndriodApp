@@ -472,7 +472,7 @@ private fun RequestNotificationPermissionAndRegister() {
         ) { isGranted ->
             if (isGranted) {
                 android.util.Log.d("FCM", "Notification permission granted")
-                MyFirebaseMessagingService().registerFCMToken()
+                MyFirebaseMessagingService.registerFCMToken()
             } else {
                 android.util.Log.w("FCM", "Notification permission denied")
             }
@@ -488,14 +488,14 @@ private fun RequestNotificationPermissionAndRegister() {
                 permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             } else {
                 android.util.Log.d("FCM", "Permission already granted, registering FCM token")
-                MyFirebaseMessagingService().registerFCMToken()
+                MyFirebaseMessagingService.registerFCMToken()
             }
         }
     } else {
         // Pre-Android 13: No runtime permission needed
         LaunchedEffect(Unit) {
             android.util.Log.d("FCM", "Pre-Tiramisu, registering FCM token directly")
-            MyFirebaseMessagingService().registerFCMToken()
+            MyFirebaseMessagingService.registerFCMToken()
         }
     }
 }

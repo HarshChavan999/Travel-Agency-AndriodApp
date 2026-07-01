@@ -209,7 +209,22 @@ class ConfigManager {
             announcementLink = get("announcement_link", default = ""),
 
             // API
-            apiUrl = get("api_url", default = "https://api.example.com")
+            apiUrl = get("api_url", default = "https://api.example.com"),
+
+            // Quick Reply Messages (from Firestore app_config/global)
+            // Use safe cast with type erasure workaround - Firestore stores arrays as List of Strings
+            buyerQuickReplies = (get<Any>("buyerQuickReplies", default = listOf<String>()) as? List<*>)?.mapNotNull { it as? String } ?: listOf(
+                "Is this package still available?",
+                "Can you provide more details?",
+                "Are dates flexible?",
+                "Do you offer group discounts?"
+            ),
+            sellerQuickReplies = (get<Any>("sellerQuickReplies", default = listOf<String>()) as? List<*>)?.mapNotNull { it as? String } ?: listOf(
+                "Yes, it's available. When are you planning to travel?",
+                "Would you like me to send the complete itinerary?",
+                "How many people are travelling?",
+                "We have a special offer going on, would you like to hear about it?"
+            )
         )
     }
 

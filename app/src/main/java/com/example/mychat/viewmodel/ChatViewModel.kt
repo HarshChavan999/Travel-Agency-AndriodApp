@@ -30,6 +30,9 @@ class ChatViewModel(
     private val _userNames = MutableStateFlow<Map<String, String>>(emptyMap())
     val userNames: StateFlow<Map<String, String>> = _userNames
 
+    private val _userAvatars = MutableStateFlow<Map<String, String>>(emptyMap())
+    val userAvatars: StateFlow<Map<String, String>> = _userAvatars
+
     // History loading states
     private val _isLoadingHistory = MutableStateFlow(false)
     val isLoadingHistory: StateFlow<Boolean> = _isLoadingHistory
@@ -160,12 +163,37 @@ class ChatViewModel(
                     
                     val userName = companyName ?: name ?: displayName ?: userId.take(8).uppercase()
                     _userNames.value = _userNames.value + (userId to userName)
-                    android.util.Log.d("ChatViewModel", "Fetched user name for $userId: $userName")
+                    
+                    // Also fetch avatarUrl/logoUrl
+                    val logoUrl = doc.getString("logoUrl") ?: doc.getString("avatarUrl") ?: ""
+                    if (logoUrl.isNotEmpty()) {
+                        _userAvatars.value = _userAvatars.value + (userId to logoUrl)
+                    }
+                    
+                    android.util.Log.d("ChatViewModel", "Fetched user name for $userId: $userName, avatar: ${if (logoUrl.isNotEmpty()) "present" else "none"}")
                 } else {
                     _userNames.value = _userNames.value + (userId to userId.take(8).uppercase())
                 }
             } catch (e: Exception) {
                 android.util.Log.e("ChatViewModel", "Error fetching user name for $userId: ${e.message}")
+            }
+        }
+    }
+
+    fun fetchUserAvatar(userId: String) {
+        if (_userAvatars.value.containsKey(userId)) return
+        viewModelScope.launch {
+            try {
+                val db = com.google.firebase.firestore.FirebaseFirestore.getInstance()
+                val doc = db.collection("users").document(userId).get().await()
+                if (doc.exists()) {
+                    val logoUrl = doc.getString("logoUrl") ?: doc.getString("avatarUrl") ?: ""
+                    if (logoUrl.isNotEmpty()) {
+                        _userAvatars.value = _userAvatars.value + (userId to logoUrl)
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatViewModel", "Error fetching user avatar for $userId: ${e.message}")
             }
         }
     }

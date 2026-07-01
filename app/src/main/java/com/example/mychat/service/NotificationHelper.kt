@@ -36,7 +36,8 @@ object NotificationHelper {
         context: Context,
         senderName: String,
         messageContent: String,
-        senderUserId: String
+        senderUserId: String,
+        senderAvatarUrl: String = ""
     ) {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -51,18 +52,48 @@ object NotificationHelper {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_dialog_email)
-            .setContentTitle(senderName)
-            .setContentText(messageContent)
+        var bitmap: android.graphics.Bitmap? = null
+
+        // Load avatar bitmap if URL is provided
+        if (senderAvatarUrl.isNotEmpty()) {
+            try {
+                val url = java.net.URL(senderAvatarUrl)
+                val connection = url.openConnection()
+                connection.doInput = true
+                connection.connect()
+                val inputStream = connection.getInputStream()
+                bitmap = android.graphics.BitmapFactory.decodeStream(inputStream)
+                inputStream.close()
+            } catch (e: Exception) {
+                android.util.Log.w("NotificationHelper", "Failed to load large icon: ${e.message}")
+            }
+        }
+
+        // Build notification using MessagingStyle (exactly like WhatsApp)
+        val userIcon = if (bitmap != null) {
+            androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
+        } else {
+            null
+        }
+
+        val sender = androidx.core.app.Person.Builder()
+            .setName(senderName)
+            .setIcon(userIcon)
+            .setKey(senderUserId)
+            .build()
+
+        val messagingStyle = NotificationCompat.MessagingStyle(sender)
+            .addMessage(messageContent, System.currentTimeMillis(), sender)
+
+        val notificationBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(com.example.mychat.R.mipmap.ic_launcher)
+            .setStyle(messagingStyle)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(messageContent))
-            .build()
 
         try {
-            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
+            NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notificationBuilder.build())
             android.util.Log.d("NotificationHelper", "Notification shown for message from $senderName")
         } catch (e: SecurityException) {
             android.util.Log.w("NotificationHelper", "Notification permission not granted: ${e.message}")

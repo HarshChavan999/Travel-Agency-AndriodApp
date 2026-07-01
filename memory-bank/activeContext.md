@@ -98,4 +98,87 @@ The chat interface has been completely redesigned to match WhatsApp's profession
 ### Build Status: ✅ SUCCESSFUL (Zero warnings)
 - Build compiles without errors or warnings.
 - All changes are backward compatible with existing ChatViewModel, ChatRepository, and MainActivity navigation.
+
+### ✅ **QUICK REPLIES ADDED: Ready-Made Chat Messages (v2.5)**
+The "Ready Chat Messages" (quick replies) feature from the webapp has now been added to the Android app, matching the exact behavior from `page.tsx`.
+
+### Changes Made:
+
+#### 1. MessageInput.kt — Quick Reply Chip Support
+- Added `quickReplies: List<String> = emptyList()` parameter
+- Added `sentMessages: Set<String> = emptySet()` parameter
+- Quick reply chips appear in a horizontal scrollable row above the text input
+- Already-sent quick replies are automatically filtered out
+- Tapping a chip sends the message immediately via `onSendMessage`
+- Chips use rounded (`RoundedCornerShape(18.dp)`) gray (`#F0F0F0`) background
+
+#### 2. ChatScreen.kt — Buyer & Seller Quick Reply Constants
+- **BUYER_QUICK_REPLIES** (for users): "Is this package still available?", "Can you provide more details?", "Are dates flexible?", "Do you offer group discounts?"
+- **SELLER_QUICK_REPLIES** (for agencies): "Yes, it's available. When are you planning to travel?", "Would you like me to send the complete itinerary?", "How many people are travelling?", "We have a special offer going on, would you like to hear about it?"
+- Dynamically selects the correct set based on `currentUser?.role == "agency"`
+- Tracks already-sent message texts to prevent duplicate quick replies
+
+### Build Status: ✅ SUCCESSFUL
+- Build compiles without errors.
+
+### WebApp Alignment
+- Quick replies match the exact messages from webapp's `BUYER_QUICK_REPLIES` and `SELLER_QUICK_REPLIES` constants (page.tsx lines 61-73)
+- Filtering logic matches the webapp's approach of excluding already-sent messages (page.tsx lines 4508-4518)
+- UI behavior (tap to send, horizontal scroll, gray chips) mirrors the webapp implementation
+### ✅ **ADMIN-EDITABLE QUICK REPLIES: Full Feature Added (v2.6)**
+Quick reply messages are now configurable by admin users via Firestore, with admin settings UI in both WebApp and Android App.
+
+### Changes Made:
+
+#### 🔥 **Firestore Document: `app_config/global`**
+- Added `buyerQuickReplies` field (array of strings): Ready messages shown to users/buyers
+- Added `sellerQuickReplies` field (array of strings): Ready messages shown to agencies/sellers
+- Added `updatedAt` and `updatedBy` tracking fields
+- Existing Firestore rules already allow admin-only write via `isAdmin()` check
+
+#### 🌐 **WebApp Changes (Travel-Agency-WebApp)**
+1. **New Component: `AdminQuickReplySettings.tsx`**
+   - Loads current quick replies from Firestore `app_config/global`
+   - Provides editable textareas (one message per line) for buyer and seller replies
+   - Save button writes to Firestore
+   - Integrated into the admin settings section (visible when `userData.role === 'admin'`)
+   
+2. **New Utility: `quickReplyService.ts`**
+   - `fetchQuickReplies()` — one-time fetch from Firestore with fallback to hardcoded defaults
+   - `subscribeQuickReplies(callback)` — real-time listener for live updates
+
+#### 🤖 **Android App Changes (Travel-Agency-AndriodApp)**
+1. **`AppConfig.kt`** — Added `buyerQuickReplies` and `sellerQuickReplies` fields with defaults
+2. **`ConfigManager.kt`** — Parses `buyerQuickReplies` and `sellerQuickReplies` from Firestore document
+3. **`ChatScreen.kt`** — Reads quick replies from `ConfigManager` instead of hardcoded constants
+4. **New: `AdminQuickReplyScreen.kt`** — Full admin settings screen with editable textareas
+5. **`ProfileScreen.kt`** — Added "Quick Reply Settings" button visible only for admin users
+6. **`MainActivity.kt`** — Added `ADMIN_QUICK_REPLIES` screen enumeration and navigation
+
+#### 📜 **Seed Scripts**
+- `scripts/seed-quick-replies.js` (both WebApp and Android directories) — One-time script to initialize the Firestore document
+
+### Build Status: ✅ SUCCESSFUL
+- Android app compiles without errors
+
+### WebApp Alignment
+- Quick replies are now stored in a centralized location (`app_config/global` Firestore document)
+- Both apps read from the same source
+- Admin can edit from either the WebApp admin panel or the Android app profile
+
+### ✅ **APP ICON UPDATED: TripDM Mobile Icon Applied**
+The app launcher icon has been updated from the default Android icon to the custom TripDM_Mobile_ICON.
+
+### Changes Made:
+1. **All mipmap density folders updated** — Replaced `ic_launcher.webp` and `ic_launcher_round.webp` in mdpi (48x48), hdpi (72x72), xhdpi (96x96), xxhdpi (144x144), and xxxhdpi (192x192) with properly resized versions of `TripDM_Mobile_ICON.png` (1254x1254 source)
+2. **❌ Removed `mipmap-anydpi-v26/`** — Removed the adaptive icon XML wrapper entirely. Using the same full image for both background and foreground layers in the adaptive icon caused rendering conflicts where the old blue Android logo would appear instead of the new icon.
+3. **Old vector drawables preserved** — `ic_launcher_background.xml` and `ic_launcher_foreground.xml` in `drawable/` remain as they are used for placeholder/error images in image loading code
+
+### Why the fix works:
+On API 26+, the adaptive icon system renders the background layer at 108×108dp and the foreground at 72×72dp (clipped to device shape). Using the same full-image WebP for both layers caused the system to render incorrectly. Removing the `mipmap-anydpi-v26` folder makes API 26+ devices fall back to the regular density-specific WebP files, which now display the TripDM icon correctly.
+
+### Build Status: ✅ READY
+- No code changes needed — only resource files updated
+- App icon references in AndroidManifest.xml remain unchanged (`@mipmap/ic_launcher` / `@mipmap/ic_launcher_round`)
+
 - Uses `Icons.AutoMirrored.Filled.ArrowBack` to avoid deprecation warnings.

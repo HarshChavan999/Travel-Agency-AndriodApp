@@ -3,7 +3,9 @@ package com.example.mychat.ui.components
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -16,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -25,16 +28,56 @@ import com.example.mychat.ui.theme.*
 fun MessageInput(
     onSendMessage: (String) -> Unit,
     isSending: Boolean = false,
+    quickReplies: List<String> = emptyList(),
+    sentMessages: Set<String> = emptySet(),
     modifier: Modifier = Modifier
 ) {
     var messageText by remember { mutableStateOf("") }
     val hapticFeedback = LocalHapticFeedback.current
+
+    // Filter out quick replies that have already been sent in this conversation
+    val availableQuickReplies = remember(quickReplies, sentMessages) {
+        quickReplies.filter { it !in sentMessages }
+    }
 
     Surface(
         color = WhatsAppInputBg,
         shadowElevation = 0.dp,
         modifier = modifier
     ) {
+        Column {
+            // Quick Replies row - shown above the text input
+            if (availableQuickReplies.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    availableQuickReplies.forEach { reply ->
+                        Surface(
+                            onClick = {
+                                hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                onSendMessage(reply)
+                            },
+                            shape = RoundedCornerShape(18.dp),
+                            color = Color(0xFFF0F0F0),
+                            border = null
+                        ) {
+                            Text(
+                                text = reply,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF1C1F26),
+                                maxLines = 2,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -155,4 +198,5 @@ fun MessageInput(
             }
         }
     }
+}
 }

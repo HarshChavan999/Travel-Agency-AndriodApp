@@ -29,5 +29,18 @@ data class AppConfig(
     val heroBannerTitle: String = "BOOK YOUR TOUR WITH US",
     val heroBannerSubtitle: String = "Domestic Tour | International tour",
     val popularDestinationsTitle: String = "Popular Destinations",
-    val popularDestinationsSubtitle: String = "Explore amazing places"
+    val popularDestinationsSubtitle: String = "Explore amazing places",
+    // Quick Reply Messages (editable by admin via Firestore app_config/global)
+    val buyerQuickReplies: List<String> = listOf(
+        "Is this package still available?",
+        "Can you provide more details?",
+        "Are dates flexible?",
+        "Do you offer group discounts?"
+    ),
+    val sellerQuickReplies: List<String> = listOf(
+        "Yes, it's available. When are you planning to travel?",
+        "Would you like me to send the complete itinerary?",
+        "How many people are travelling?",
+        "We have a special offer going on, would you like to hear about it?"
+    )
 )

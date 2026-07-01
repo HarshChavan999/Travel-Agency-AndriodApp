@@ -16,10 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.mychat.data.model.Message
 import com.example.mychat.data.model.User
 import com.example.mychat.viewmodel.ChatViewModel
@@ -33,7 +35,8 @@ data class ChatConversation(
     val lastMessage: String,
     val lastMessageTime: Long,
     val unreadCount: Int = 0,
-    val isOnline: Boolean = false
+    val isOnline: Boolean = false,
+    val avatarUrl: String = ""
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -47,9 +50,10 @@ fun ChatListScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     val userNames by chatViewModel.userNames.collectAsState()
+    val userAvatars by chatViewModel.userAvatars.collectAsState()
 
     // Derive unique conversations from messages, currentUser, and userNames cache
-    val conversations = remember(messages, currentUser, userNames) {
+    val conversations = remember(messages, currentUser, userNames, userAvatars) {
         val userId = currentUser?.id ?: ""
         val userMap = mutableMapOf<String, ChatConversation>()
 
@@ -63,12 +67,14 @@ fun ChatListScreen(
             val lastMsg = msgs.maxByOrNull { it.timestamp }
             if (lastMsg != null) {
                 val resolvedName = userNames[otherUserId] ?: otherUserId.take(8).uppercase()
+                val resolvedAvatar = userAvatars[otherUserId] ?: ""
                 userMap[otherUserId] = ChatConversation(
                     userId = otherUserId,
                     displayName = resolvedName,
                     lastMessage = lastMsg.content,
                     lastMessageTime = lastMsg.timestamp,
-                    isOnline = false
+                    isOnline = false,
+                    avatarUrl = resolvedAvatar
                 )
             }
         }
@@ -81,6 +87,7 @@ fun ChatListScreen(
     LaunchedEffect(conversations) {
         conversations.forEach { conversation ->
             chatViewModel.fetchUserName(conversation.userId)
+            chatViewModel.fetchUserAvatar(conversation.userId)
         }
     }
 
@@ -211,12 +218,13 @@ fun ChatListScreen(
                         ChatListItem(
                             conversation = conversation,
                             onClick = {
-                                // Create a User object for navigation
+                                // Create a User object for navigation with avatarUrl
                                 val chatUser = User(
                                     id = conversation.userId,
                                     email = "${conversation.userId}@agency.com",
                                     displayName = conversation.displayName,
-                                    isOnline = conversation.isOnline
+                                    isOnline = conversation.isOnline,
+                                    avatarUrl = conversation.avatarUrl
                                 )
                                 onOpenChat(chatUser)
                             }
@@ -246,7 +254,7 @@ fun ChatListItem(
             .clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Avatar
+        // Avatar with logo support
         Box(
             modifier = Modifier
                 .size(54.dp)
@@ -254,12 +262,23 @@ fun ChatListItem(
                 .background(Color(0xFF075E54)),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = conversation.displayName.take(1).uppercase(),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            if (conversation.avatarUrl.isNotEmpty()) {
+                AsyncImage(
+                    model = conversation.avatarUrl,
+                    contentDescription = "Profile",
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Text(
+                    text = conversation.displayName.take(1).uppercase(),
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
             // Online indicator
             if (conversation.isOnline) {
                 Box(

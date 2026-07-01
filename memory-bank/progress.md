@@ -43,6 +43,21 @@ The Android app UI has been fully aligned with the WebApp design across all majo
 ### Next Steps (Future Work)
 - Group chats and multi-user rooms
 - File/image sharing
-- User profile screen
-- Package comparison detail view
-- Pincode selection modal
+### ✅ Recently Completed (Quick Replies / Ready Chat Messages)
+1. **MessageInput.kt** - Added quick reply chip row above text input with horizontal scrolling and auto-filtering of sent messages
+2. **ChatScreen.kt** - Added BUYER_QUICK_REPLIES and SELLER_QUICK_REPLIES constants matching webapp, dynamic selection by user role
+### ✅ Recently Completed (Admin-Editable Quick Replies)
+1. **Firestore `app_config/global`** - Added `buyerQuickReplies` and `sellerQuickReplies` fields
+2. **WebApp: `AdminQuickReplySettings.tsx`** - Admin UI component for editing quick replies
+3. **WebApp: `quickReplyService.ts`** - Utility to fetch/subscribe to quick replies from Firestore
+4. **Android: `AppConfig.kt`** - Added quick reply fields with defaults
+5. **Android: `ConfigManager.kt`** - Parses quick replies from Firestore document
+6. **Android: `ChatScreen.kt`** - Reads from ConfigManager instead of hardcoded constants  
+7. **Android: `AdminQuickReplyScreen.kt`** - Full admin edit screen for quick replies
+8. **Android: `ProfileScreen.kt`** - Admin button to access quick reply settings
+9. **Android: `MainActivity.kt`** - Navigation for admin quick reply screen
+10. **Seed Scripts** - `scripts/seed-quick-replies.js` for both projects
+### ✅ Recently Completed (App Icon Updated)
+1. **Custom TripDM icon applied** — Replaced all mipmap density `.webp` files (mdpi through xxxhdpi) with resized versions of `TripDM_Mobile_ICON.png`
+2. **❌ Removed `mipmap-anydpi-v26/`** — Adaptive icon XMLs were causing rendering conflicts (showing old blue Android logo). Removed entirely — API 26+ devices now fall back to regular density icons.
+3. **Old drawables preserved** — `ic_launcher_background.xml` and `ic_launcher_foreground.xml` kept for placeholder usage in image loading

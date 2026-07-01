@@ -156,6 +156,20 @@ class ChatRepository(
         // NOTE: Do NOT clear _messages.value here — we want history to persist
     }
 
+    private fun parseTimestamp(timestampObj: Any?, createdAtObj: Any?): Long {
+        return when (timestampObj) {
+            is com.google.firebase.Timestamp -> timestampObj.toDate().time
+            is Number -> timestampObj.toLong()
+            else -> {
+                when (createdAtObj) {
+                    is com.google.firebase.Timestamp -> createdAtObj.toDate().time
+                    is Number -> createdAtObj.toLong()
+                    else -> System.currentTimeMillis()
+                }
+            }
+        }
+    }
+
     private fun documentToMessage(document: com.google.firebase.firestore.DocumentSnapshot): Message? {
         return try {
             val data = document.data ?: return null
@@ -164,7 +178,7 @@ class ChatRepository(
                 from = data["sender"] as? String ?: "",
                 to = data["receiverId"] as? String ?: "",
                 content = data["text"] as? String ?: "",
-                timestamp = (data["timestamp"] as? Long) ?: 0L,
+                timestamp = parseTimestamp(data["timestamp"], data["created_at"]),
                 status = when (data["status"] as? String) {
                     "delivered" -> MessageStatus.DELIVERED
                     "read" -> MessageStatus.READ
@@ -190,7 +204,7 @@ class ChatRepository(
                 from = data["from_user_id"] as? String ?: "",
                 to = data["to_user_id"] as? String ?: "",
                 content = data["content"] as? String ?: "",
-                timestamp = (data["timestamp"] as? Long) ?: 0L,
+                timestamp = parseTimestamp(data["timestamp"], data["created_at"]),
                 status = when (data["status"] as? String) {
                     "delivered" -> MessageStatus.DELIVERED
                     "read" -> MessageStatus.READ
